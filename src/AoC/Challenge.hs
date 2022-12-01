@@ -181,35 +181,35 @@ data ChallengeData = ChallengeData
  token is present in the given configuration.
 -}
 challengeData :: Config -> ChallengeSpec -> IO ChallengeData
-challengeData Config{..} spec@ChallengeSpec{..} = do
+challengeData cfg spec = do
   makeChallengePathDirs cps
   inp <-
     runExceptT
       . asum
-      $ [ maybeToEither [printf "Input file not found at %s" input]
-            =<< liftIO (readFileMaybe input)
+      $ [ maybeToEither [printf "Input file not found at %s" cps.input]
+            =<< liftIO (readFileMaybe cps.input)
         , fetchInput
         ]
   ts <-
-    readFileMaybe tests >>= \case
+    readFileMaybe cps.tests >>= \case
       Nothing -> pure []
-      Just s -> case MP.parse parseTests tests s of
+      Just s -> case MP.parse parseTests cps.tests s of
         -- Put [] in the IO functor (no test data), and print an error.
         Left e -> [] <$ putStrLn (MP.errorBundlePretty e)
         Right r -> pure r
 
   return ChallengeData{input = inp, tests = ts}
  where
-  cps@ChallengePaths{..} = challengePaths spec
+  cps = challengePaths spec
   fetchInput :: ExceptT [String] IO String
   fetchInput = do
-    sessKey <- maybeToEither ["Session key needed to fetch input"] session
-    let opts = defaultAoCOpts year sessKey
+    sessKey <- maybeToEither ["Session key needed to fetch input"] cfg.session
+    let opts = defaultAoCOpts cfg.year sessKey
     inp <- liftEither . bimap showAoCError T.unpack =<< liftIO (runAoC opts a)
-    liftIO $ writeFile input inp
+    liftIO $ writeFile cps.input inp
     pure inp
    where
-    a = AoCInput day
+    a = AoCInput spec.day
 
 -- | Input and expected answer for a single test.
 data TestData = TestData

@@ -128,7 +128,7 @@ runOne ::
   IO (Either [String] String)
 runOne cfg ro d p sol = do
   withColor ANSI.Dull ANSI.Blue $ printf ">> Day %02d%c" (dayInt d) (partChar p)
-  cd@ChallengeData{..} <- challengeData cfg (ChallengeSpec d p)
+  cd <- challengeData cfg (ChallengeSpec d p)
   if ro.test
     then do
       printf "\n"
