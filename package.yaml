@@ -1,6 +1,6 @@
-name:                aoc2021
-version:             0.2.0.0
-github:              "mgreen89/aoc2021-haskell"
+name:                aoc2022
+version:             0.1.0.0
+github:              "mgreen89/aoc2022-haskell"
 license:             BSD3
 author:              "Matthew Green"
 maintainer:          "mgreen89@gmail.com"
@@ -79,7 +79,7 @@ default-extensions:
   - ViewPatterns
 
 executables:
-  aoc2021-exe:
+  aoc202-exe:
     main:                Main.hs
     source-dirs:         app
     ghc-options:
@@ -88,11 +88,11 @@ executables:
     - -rtsopts
     - -with-rtsopts=-N
     dependencies:
-    - aoc2021
+    - aoc2022
     - optparse-applicative
 
 tests:
-  aoc2021-test:
+  aoc2022-test:
     main:                Spec.hs
     source-dirs:         test
     ghc-options:
@@ -100,10 +100,10 @@ tests:
     - -rtsopts
     - -with-rtsopts=-N
     dependencies:
-    - aoc2021
+    - aoc2022
 
 benchmarks:
-  aoc2021-bench:
+  aoc2022-bench:
     main:                Bench.hs
     source-dirs:         bench
     ghc-options:
@@ -112,4 +112,4 @@ benchmarks:
     - -with-rtsopts=-N
     - -O2
     dependencies:
-    - aoc2021
+    - aoc2022
