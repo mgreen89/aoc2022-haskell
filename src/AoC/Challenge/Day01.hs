@@ -1,19 +1,24 @@
-{-# LANGUAGE PartialTypeSignatures #-}
-{-# OPTIONS_GHC -Wno-partial-type-signatures #-}
-{-# OPTIONS_GHC -Wno-unused-imports #-}
-{-# OPTIONS_GHC -Wno-unused-top-binds #-}
-
 module AoC.Challenge.Day01 (
-  )
-where
-
--- day01a
--- , day01b
+  day01a,
+  day01b,
+) where
 
 import AoC.Solution
+import Data.List (sortBy)
+import Data.List.Split (splitOn)
 
-day01a :: Solution _ _
-day01a = Solution{sParse = Right, sShow = show, sSolve = Right}
+day01a :: Solution [[Int]] Int
+day01a =
+  Solution
+    { sParse = Right . fmap (fmap read . lines) . splitOn "\n\n"
+    , sShow = show
+    , sSolve = Right . maximum . fmap sum
+    }
 
-day01b :: Solution _ _
-day01b = Solution{sParse = Right, sShow = show, sSolve = Right}
+day01b :: Solution [[Int]] Int
+day01b =
+  Solution
+    { sParse = Right . fmap (fmap read . lines) . splitOn "\n\n"
+    , sShow = show
+    , sSolve = Right . sum . take 3 . sortBy (flip compare) . fmap sum
+    }
