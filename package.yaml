@@ -1,10 +1,10 @@
 name:                aoc2021
-version:             0.1.0.0
+version:             0.2.0.0
 github:              "mgreen89/aoc2021-haskell"
 license:             BSD3
 author:              "Matthew Green"
 maintainer:          "mgreen89@gmail.com"
-copyright:           "2021 Matthew Green"
+copyright:           "2022 Matthew Green"
 
 extra-source-files:
 - README.md
@@ -23,7 +23,9 @@ dependencies:
 - advent-of-code-api >= 0.2.8
 - aeson
 - ansi-terminal
+- array
 - bytestring
+- bytestring-trie
 - containers
 - criterion
 - data-default-class
@@ -39,6 +41,9 @@ dependencies:
 - pandoc
 - parser-combinators
 - primitive
+- psqueues
+- recursion-schemes
+- safe
 - split
 - text
 - time
@@ -54,15 +59,23 @@ default-extensions:
   - ApplicativeDo
   - BangPatterns
   - DataKinds
+  - DeriveAnyClass
+  - DeriveFunctor
+  - DeriveFoldable
   - DeriveGeneric
+  - DeriveTraversable
+  - DuplicateRecordFields
   - FlexibleContexts
   - GADTs
   - KindSignatures
   - LambdaCase
+  - OverloadedRecordDot
   - PatternGuards
   - RecordWildCards
+  - TemplateHaskell
   - TupleSections
   - TypeApplications
+  - TypeFamilies
   - ViewPatterns
 
 executables:
@@ -70,6 +83,7 @@ executables:
     main:                Main.hs
     source-dirs:         app
     ghc-options:
+    - -Wall
     - -threaded
     - -rtsopts
     - -with-rtsopts=-N

@@ -3,5 +3,6 @@
 *.cabal
 *.lock
 *~
-/input-data
-/test-data
+/data/**
+!/data/test
+!/data/test/**
