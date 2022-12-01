@@ -47,14 +47,9 @@ readConfig fp = do
         return def
       Right cfg -> return cfg
 
--- Implement the JSON translation required by the Yaml library.
-configJSON :: A.Options
-configJSON =
-  A.defaultOptions{A.fieldLabelModifier = A.camelTo2 '-' . drop 4}
-
 instance A.ToJSON Config where
-  toJSON = A.genericToJSON configJSON
-  toEncoding = A.genericToEncoding configJSON
+  toJSON = A.genericToJSON A.defaultOptions
+  toEncoding = A.genericToEncoding A.defaultOptions
 
 instance A.FromJSON Config where
-  parseJSON = A.genericParseJSON configJSON
+  parseJSON = A.genericParseJSON A.defaultOptions
