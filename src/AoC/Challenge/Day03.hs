@@ -5,7 +5,7 @@ module AoC.Challenge.Day03 (
 
 import AoC.Solution
 import Data.Char (isLower, ord)
-import Data.IntSet (findMin, fromList, intersection)
+import qualified Data.IntSet as IS
 import Data.List (foldl1', splitAt)
 import Data.List.Split (chunksOf)
 
@@ -14,27 +14,19 @@ prio c
   | isLower c = ord c - ord 'a' + 1
   | otherwise = ord c - ord 'A' + 27
 
-getCommonPrio :: String -> Int
-getCommonPrio inp =
-  let (a, b) = splitAt (length inp `div` 2) inp
-      (a', b') = (fromList $ prio <$> a, fromList $ prio <$> b)
-   in findMin $ intersection a' b'
+getCommon :: [String] -> Int
+getCommon = IS.findMin . foldl1' IS.intersection . fmap (IS.fromList . fmap prio)
+
+day03 :: ([String] -> [[String]]) -> Solution [String] Int
+day03 prep =
+  Solution
+    { sParse = Right . lines
+    , sShow = show
+    , sSolve = Right . sum . fmap getCommon . prep
+    }
 
 day03a :: Solution [String] Int
-day03a =
-  Solution
-    { sParse = Right . lines
-    , sShow = show
-    , sSolve = Right . sum . fmap getCommonPrio
-    }
-
-getCommon :: [String] -> Int
-getCommon = findMin . foldl1' intersection . fmap (fromList . fmap prio)
+day03a = day03 (fmap (\x -> chunksOf (length x `div` 2) x))
 
 day03b :: Solution [String] Int
-day03b =
-  Solution
-    { sParse = Right . lines
-    , sShow = show
-    , sSolve = Right . sum . fmap getCommon . chunksOf 3
-    }
+day03b = day03 (chunksOf 3)
