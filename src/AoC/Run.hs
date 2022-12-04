@@ -6,8 +6,7 @@ module AoC.Run (
   SubmitOpts (..),
   defaultSubmitOpts,
   mainSubmit,
-)
-where
+) where
 
 import Advent.Extra
 import AoC.Challenge
@@ -140,17 +139,18 @@ runOne cfg ro d p sol = do
       | ro.bench -> do
           _ <- evaluate (force inp)
           case sol of
-            SomeSolution Solution{..} -> do
-              let i = sParse inp
-              case i of
-                Right x -> do
-                  evaluate $ force x
-                  benchmark $ nf sSolve x
-                  putStrLn "* excluding parsing"
-                  pure $ Left ["No results when benchmarking"]
-                _ -> do
-                  putStrLn "(No parse)"
-                  pure $ Left ["No results when benchmarking"]
+            SomeSolution s -> do
+              -- Run the solution to check it succeeds.
+              case runSolution s inp of
+                Left e ->
+                  -- Failure, don't benchmark, just print error.
+                  withColor ANSI.Vivid ANSI.Red $
+                    putStrLn $
+                      "Skipping benchmark - failure: " ++ showSolutionError e
+                Right _ ->
+                  -- Success, run the benchmark.
+                  benchmark $ nf (s.sSolve <=< s.sParse) inp
+              pure $ Left ["No results when benchmarking"]
       | ro.actual -> first ((: []) . show) <$> runSol sol inp
       | otherwise -> pure $ Left ["Skipping!"]
     Left e
