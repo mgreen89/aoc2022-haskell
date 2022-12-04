@@ -38,7 +38,7 @@ day04a = day04 checkA
 
 checkB :: Areas -> Bool
 checkB ((a, b), (c, d)) =
-  a <= c && b >= c || a <= d && b >= d || c <= a && d >= a || c <= b && d >= b
+  not (b < c || a > d)
 
 day04b :: Solution [Areas] Int
 day04b = day04 checkB
