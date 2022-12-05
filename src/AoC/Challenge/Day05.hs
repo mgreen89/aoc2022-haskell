@@ -1,19 +1,111 @@
-{-# LANGUAGE PartialTypeSignatures #-}
-{-# OPTIONS_GHC -Wno-partial-type-signatures #-}
-{-# OPTIONS_GHC -Wno-unused-imports #-}
-{-# OPTIONS_GHC -Wno-unused-top-binds #-}
-
 module AoC.Challenge.Day05 (
-  )
-where
-
--- day05a
--- , day05b
+  day05a,
+  day05b,
+) where
 
 import AoC.Solution
+import Control.DeepSeq (NFData)
+import Data.Bifunctor (first)
+import Data.Foldable (foldl')
+import Data.IntMap (IntMap)
+import qualified Data.IntMap as IM
+import Data.List (transpose)
+import Data.Maybe (catMaybes, mapMaybe)
+import Data.Void (Void)
+import GHC.Generics (Generic)
+import Safe (headMay)
+import qualified Text.Megaparsec as MP
+import qualified Text.Megaparsec.Char as MP
+import qualified Text.Megaparsec.Char.Lexer as MPL
 
-day05a :: Solution _ _
-day05a = Solution{sParse = Right, sShow = show, sSolve = Right}
+-- The top of the stack is the start of the string.
+type Stack = String
+data Move = Move
+  { from :: !Int
+  , to :: !Int
+  , count :: !Int
+  }
+  deriving (Show, Generic, NFData)
 
-day05b :: Solution _ _
-day05b = Solution{sParse = Right, sShow = show, sSolve = Right}
+type Stacks = IntMap Stack
+type Input = (Stacks, [Move])
+
+parser :: MP.Parsec Void String Input
+parser = do
+  lines <- MP.many stackParser
+  MP.manyTill MP.anySingle (MP.string "\n\n")
+  moves <- MP.many (moveParser <* MP.optional MP.newline)
+  pure (linesToStacks lines, moves)
+ where
+  stackParser :: MP.Parsec Void String [Maybe Char]
+  stackParser =
+    MP.many
+      ( MP.choice
+          [ Just <$> (MP.char '[' *> MP.anySingle) <* MP.char ']'
+          , Nothing <$ MP.string "   "
+          ]
+          <* MP.optional (MP.char ' ')
+      )
+      <* MP.newline
+
+  moveParser :: MP.Parsec Void String Move
+  moveParser = do
+    -- Parse like 'move 1 from 2 to 1'
+    MP.string "move "
+    count <- MPL.decimal
+    MP.string " from "
+    from <- MPL.decimal
+    MP.string " to "
+    to <- MPL.decimal
+    pure $ Move{..}
+
+  linesToStacks :: [[Maybe Char]] -> Stacks
+  linesToStacks =
+    IM.fromList
+      . zip [1 ..]
+      . fmap (reverse . catMaybes)
+      . transpose
+      . reverse
+
+parseInput :: String -> Either String Input
+parseInput =
+  first MP.errorBundlePretty . MP.parse parser "day05"
+
+moveA :: Stacks -> Move -> Stacks
+moveA s m
+  | m.count == 0 = s
+  | otherwise =
+      let fromArr = s IM.! m.from
+          m' = m{count = m.count - 1}
+          s' = IM.adjust tail m.from . IM.adjust (head fromArr :) m.to $ s
+       in moveA s' m'
+
+solve :: (Stacks -> Move -> Stacks) -> Input -> String
+solve move (s, ms) =
+  let endStacks = foldl' move s ms
+   in mapMaybe (headMay . snd) . IM.toList $ endStacks
+
+day05a :: Solution Input String
+day05a =
+  Solution
+    { sParse = parseInput
+    , sShow = id
+    , sSolve = Right . solve moveA
+    }
+
+moveB :: Stacks -> Move -> Stacks
+moveB s m =
+  let
+    fromArr = s IM.! m.from
+   in
+    IM.adjust (drop m.count) m.from
+      . IM.adjust (take m.count fromArr ++) m.to
+      $ s
+
+day05b :: Solution Input String
+day05b =
+  Solution
+    { sParse = parseInput
+    , sShow = id
+    , sSolve = Right . solve moveB
+    }
