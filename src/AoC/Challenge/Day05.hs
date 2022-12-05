@@ -71,6 +71,18 @@ parseInput :: String -> Either String Input
 parseInput =
   first MP.errorBundlePretty . MP.parse parser "day05"
 
+solve :: (Stacks -> Move -> Stacks) -> Input -> String
+solve move (s, ms) =
+  mapMaybe (headMay . snd) . IM.toList $ foldl' move s ms
+
+day05 :: (Stacks -> Move -> Stacks) -> Solution Input String
+day05 move =
+  Solution
+    { sParse = parseInput
+    , sShow = id
+    , sSolve = Right . solve move
+    }
+
 moveA :: Stacks -> Move -> Stacks
 moveA s m
   | m.count == 0 = s
@@ -80,18 +92,8 @@ moveA s m
           s' = IM.adjust tail m.from . IM.adjust (head fromArr :) m.to $ s
        in moveA s' m'
 
-solve :: (Stacks -> Move -> Stacks) -> Input -> String
-solve move (s, ms) =
-  let endStacks = foldl' move s ms
-   in mapMaybe (headMay . snd) . IM.toList $ endStacks
-
 day05a :: Solution Input String
-day05a =
-  Solution
-    { sParse = parseInput
-    , sShow = id
-    , sSolve = Right . solve moveA
-    }
+day05a = day05 moveA
 
 moveB :: Stacks -> Move -> Stacks
 moveB s m =
@@ -103,9 +105,4 @@ moveB s m =
       $ s
 
 day05b :: Solution Input String
-day05b =
-  Solution
-    { sParse = parseInput
-    , sShow = id
-    , sSolve = Right . solve moveB
-    }
+day05b = day05 moveB
