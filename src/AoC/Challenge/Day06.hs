@@ -7,18 +7,21 @@ where
 import AoC.Solution
 import AoC.Util (maybeToEither)
 import Control.Applicative (getZipList, ZipList(..))
-import Data.List (zip4)
+import Control.Monad (foldM)
+import Data.List (tails)
+
+windows :: Int -> [a] -> [[a]]
+windows n = getZipList . traverse ZipList . take n . tails
 
 solve :: Int -> String -> Either String Int
 solve n s =
-  let f = foldr check (Right n) . reverse . getZipList . traverse ZipList . take n . iterate (drop 1) $ s
+  let f = foldM check n $ windows n s
   in case f of
     Right c -> Left "Could not find 4 different"
     Left i -> Right i
  where
-  check :: String -> Either Int Int -> Either Int Int
-  check _ (Left i) = Left i
-  check s (Right c) = if allDifferent s then Left c else Right (c + 1)
+  check :: Int -> String -> Either Int Int
+  check c s = if allDifferent s then Left c else Right (c + 1)
 
   allDifferent :: (Eq a) => [a] -> Bool
   allDifferent = \case
