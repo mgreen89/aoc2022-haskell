@@ -1,6 +1,6 @@
 module AoC.Challenge.Day06 (
   day06a,
-  day06b
+  day06b,
 )
 where
 

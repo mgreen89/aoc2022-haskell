@@ -1,19 +1,57 @@
-{-# LANGUAGE PartialTypeSignatures #-}
-{-# OPTIONS_GHC -Wno-partial-type-signatures #-}
-{-# OPTIONS_GHC -Wno-unused-imports #-}
-{-# OPTIONS_GHC -Wno-unused-top-binds #-}
-
 module AoC.Challenge.Day07 (
-  )
-where
-
--- day07a
--- , day07b
+  day07a,
+  day07b,
+) where
 
 import AoC.Solution
+import AoC.Util (maybeToEither)
+import Control.Applicative (asum)
+import Data.Foldable (foldl')
+import Data.Function (on)
+import Data.List (sort, tails)
+import Data.Map (Map)
+import qualified Data.Map as M
+import Text.Read (readMaybe)
 
-day07a :: Solution _ _
-day07a = Solution{sParse = Right, sShow = show, sSolve = Right}
+getSizes :: [String] -> Map [String] Int
+getSizes = snd . foldl' go ([], M.empty)
+ where
+  go :: ([String], Map [String] Int) -> String -> ([String], Map [String] Int)
+  go (pwd, m) l = case words l of
+    ["$", "cd", "/"] -> ([], m)
+    ["$", "cd", ".."] -> (tail pwd, m)
+    ["$", "cd", d] -> (d : pwd, m)
+    ["$", ls] -> (pwd, m)
+    ["dir", _] -> (pwd, m)
+    [n, _] | Just size <- readMaybe n -> handleFile size (pwd, m)
+    _ -> error "Invalid line!"
 
-day07b :: Solution _ _
-day07b = Solution{sParse = Right, sShow = show, sSolve = Right}
+  handleFile :: Int -> ([String], Map [String] Int) -> ([String], Map [String] Int)
+  handleFile size (pwd, m) = (pwd, M.unionWith (+) m $ M.fromList (fmap (,size) (tails pwd)))
+
+day07a :: Solution [String] Int
+day07a =
+  Solution
+    { sParse = Right . lines
+    , sShow = show
+    , sSolve = Right . sum . M.filter (<= 100000) . getSizes
+    }
+
+solveB :: Map [String] Int -> Either String Int
+solveB sizes =
+  maybeToEither "No dir large enough" . asum . fmap go . sort $ M.elems sizes
+ where
+  free = 70000000 - sizes M.! []
+  reqSize = 30000000 - free
+  go :: Int -> Maybe Int
+  go i
+    | i >= reqSize = Just i
+    | otherwise = Nothing
+
+day07b :: Solution [String] Int
+day07b =
+  Solution
+    { sParse = Right . lines
+    , sShow = show
+    , sSolve = solveB . getSizes
+    }
