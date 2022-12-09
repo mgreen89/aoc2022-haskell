@@ -36,13 +36,6 @@ dir = \case
   L -> V2 0 (-1)
   D -> V2 1 0
 
-move :: Point -> Move -> [Point]
-move p m =
-  take m.l . drop 1 . iterate (+ dir m.d) $ p
-
-close :: Point -> [Point]
-close p = [p + d | d <- V2 <$> [-1, 0, 1] <*> [-1, 0, 1]]
-
 moveRope :: (Rope, Set Point) -> Move -> (Rope, Set Point)
 moveRope (r, ts) m
   | m.l == 0 = (r, ts)
@@ -57,9 +50,10 @@ moveRope (r, ts) m
 
   moveKnot :: Rope -> Point -> Rope
   moveKnot r' p =
-    if p `elem` close (head r')
-      then p : r'
-      else p + (min 1 . max (-1) <$> (head r' - p)) : r'
+    let link = head r' - p
+     in if all ((<= 1) . abs) link
+          then p : r'
+          else p + (min 1 . max (-1) <$> link) : r'
 
 solve :: Int -> [Move] -> Int
 solve ropeSize =
