@@ -1,14 +1,8 @@
-{-# LANGUAGE PartialTypeSignatures #-}
-{-# OPTIONS_GHC -Wno-partial-type-signatures #-}
-{-# OPTIONS_GHC -Wno-unused-imports #-}
-{-# OPTIONS_GHC -Wno-unused-top-binds #-}
-
 module AoC.Challenge.Day09 (
   day09a,
+  day09b,
 )
 where
-
--- , day09b
 
 import AoC.Solution
 import Control.DeepSeq (NFData)
@@ -20,6 +14,8 @@ import Linear (V2 (..))
 import Text.Read (readEither)
 
 type Point = V2 Int
+
+type Rope = [Point]
 
 data Dir = R | U | L | D deriving (Show, Generic, NFData)
 
@@ -44,34 +40,43 @@ move :: Point -> Move -> [Point]
 move p m =
   take m.l . drop 1 . iterate (+ dir m.d) $ p
 
-moveRope :: (Point, Point) -> Move -> [(Point, Point)]
-moveRope (h, t) m =
-  foldl' go [(h, t)] (move h m)
- where
-  go :: [(Point, Point)] -> Point -> [(Point, Point)]
-  go l h =
-    let t = snd $ head l
-     in if t `elem` close h then (h, t) : l else (h, h - dir m.d) : l
+close :: Point -> [Point]
+close p = [p + d | d <- V2 <$> [-1, 0, 1] <*> [-1, 0, 1]]
 
-  close :: Point -> [Point]
-  close p = [p + d | d <- V2 <$> [-1, 0, 1] <*> [-1, 0, 1]]
-
-solveA :: [Move] -> Int
-solveA =
-  S.size . snd . foldl' go ((V2 0 0, V2 0 0), S.empty)
+moveRope :: (Rope, Set Point) -> Move -> (Rope, Set Point)
+moveRope (r, ts) m
+  | m.l == 0 = (r, ts)
+  | otherwise =
+      let (t, r') = moveOnce r m.d
+       in moveRope (r', S.insert t ts) m{l = m.l - 1}
  where
-  go :: ((Point, Point), Set Point) -> Move -> ((Point, Point), Set Point)
-  go ((h, t), s) m =
-    let moves = moveRope (h, t) m
-     in (head moves, S.union (S.fromList (snd <$> moves)) s)
+  moveOnce :: Rope -> Dir -> (Point, Rope)
+  moveOnce r d =
+    let r' = foldl' moveKnot [head r + dir d] (tail r)
+     in (head r', reverse r')
+
+  moveKnot :: Rope -> Point -> Rope
+  moveKnot r' p =
+    if p `elem` close (head r')
+      then p : r'
+      else p + (min 1 . max (-1) <$> (head r' - p)) : r'
+
+solve :: Int -> [Move] -> Int
+solve ropeSize =
+  S.size . snd . foldl' moveRope (replicate ropeSize (V2 0 0), S.singleton (V2 0 0))
 
 day09a :: Solution [Move] Int
 day09a =
   Solution
     { sParse = traverse parseMove . lines
     , sShow = show
-    , sSolve = Right . solveA
+    , sSolve = Right . solve 2
     }
 
-day09b :: Solution _ _
-day09b = Solution{sParse = Right, sShow = show, sSolve = Right}
+day09b :: Solution [Move] Int
+day09b =
+  Solution
+    { sParse = traverse parseMove . lines
+    , sShow = show
+    , sSolve = Right . solve 10
+    }
