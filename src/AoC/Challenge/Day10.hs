@@ -8,11 +8,9 @@ import AoC.Solution
 import Control.DeepSeq (NFData)
 import Data.Foldable (foldl')
 import Data.List (intercalate)
+import Data.List.Split (chunksOf)
 import GHC.Generics (Generic)
 import Text.Read (readMaybe)
-
-import Data.List.Split (chunksOf)
-import Debug.Trace
 
 data Instr = Noop | Addx Int deriving (Show, Generic, NFData)
 
