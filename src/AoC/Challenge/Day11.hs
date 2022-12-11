@@ -10,7 +10,7 @@ import Data.Bifunctor (first)
 import Data.Foldable (foldl')
 import Data.IntMap (IntMap)
 import qualified Data.IntMap as IM
-import Data.List (sort)
+import Data.List (sortBy)
 import Data.Sequence (Seq)
 import qualified Data.Sequence as S
 import Data.Void (Void)
@@ -72,58 +72,50 @@ parseMonkeys =
 
 type ItemFn = Monkey -> IntMap (Monkey, Int) -> Int -> IntMap (Monkey, Int)
 
+monkeyItem :: (Int -> Int) -> Int -> ItemFn
+monkeyItem relief lcmWorry m ms w =
+  let w' = relief (m.op w) `mod` lcmWorry
+      tgt = if w' `mod` m.test == 0 then m.trueTo else m.falseTo
+      (tm, tmc) = ms IM.! tgt
+      tm' = (tm{items = tm.items S.|> w'}, tmc)
+   in IM.insert tgt tm' ms
+
 monkeyTurn :: ItemFn -> IntMap (Monkey, Int) -> Int -> IntMap (Monkey, Int)
 monkeyTurn f ms i =
-  IM.union (IM.singleton i (m', c')) $ foldl' (f m) ms m.items
+  IM.insert i (m', c') $ foldl' (f m) ms m.items
  where
   (m, c) = ms IM.! i
-  c' = c + S.length m.items
   m' = m{items = S.empty}
+  c' = c + S.length m.items
 
 monkeyRound :: ItemFn -> IntMap (Monkey, Int) -> IntMap (Monkey, Int)
 monkeyRound f ms =
   foldl' (monkeyTurn f) ms (IM.keys ms)
 
 solve :: Int -> ItemFn -> [(Int, Monkey)] -> Int
-solve nRounds f inp =
-  let
-    ms :: IntMap (Monkey, Int)
-    ms = IM.fromList . fmap (fmap (,0)) $ inp
+solve nRounds f =
+    product
+      . take 2
+      . sortBy (flip compare)
+      . fmap (snd . snd)
+      . IM.toList
+      . (!! nRounds)
+      . iterate (monkeyRound f)
+      . IM.fromList
+      . fmap (fmap (, 0))
 
-    end = iterate (monkeyRound f) ms !! nRounds
-   in
-    product . take 2 . reverse . sort . fmap (snd . snd) . IM.toList $ end
-
-monkeyItemA :: ItemFn
-monkeyItemA m ms w =
-  let w' = (m.op w `div` 3)
-      tgt = if w' `mod` m.test == 0 then m.trueTo else m.falseTo
-      (tm, tmc) = ms IM.! tgt
-      tm' = IM.singleton tgt (tm{items = tm.items S.|> w'}, tmc)
-   in IM.union tm' ms
-
-day11a :: Solution [(Int, Monkey)] Int
-day11a =
-  Solution
-    { sParse = parseMonkeys
-    , sShow = show
-    , sSolve = Right . solve 20 monkeyItemA
-    }
-
-monkeyItemB :: Int -> ItemFn
-monkeyItemB i m ms w =
-  let w' = m.op w `mod` i
-      tgt = if w' `mod` m.test == 0 then m.trueTo else m.falseTo
-      (tm, tmc) = ms IM.! tgt
-      tm' = IM.singleton tgt (tm{items = tm.items S.|> w'}, tmc)
-   in IM.union tm' ms
-
-day11b :: Solution [(Int, Monkey)] Int
-day11b =
+day11 :: Int -> (Int -> Int) -> Solution [(Int, Monkey)] Int
+day11 nRounds relief =
   Solution
     { sParse = parseMonkeys
     , sShow = show
     , sSolve = \x ->
         let modAll = product . fmap ((.test) . snd) $ x
-         in Right . solve 10000 (monkeyItemB modAll) $ x
+         in Right . solve nRounds (monkeyItem relief modAll) $ x
     }
+
+day11a :: Solution [(Int, Monkey)] Int
+day11a = day11 20 (`div` 3)
+
+day11b :: Solution [(Int, Monkey)] Int
+day11b = day11 10000 id
