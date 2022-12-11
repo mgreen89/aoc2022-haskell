@@ -1,14 +1,8 @@
-{-# LANGUAGE PartialTypeSignatures #-}
-{-# OPTIONS_GHC -Wno-partial-type-signatures #-}
-{-# OPTIONS_GHC -Wno-unused-imports #-}
-{-# OPTIONS_GHC -Wno-unused-top-binds #-}
-
 module AoC.Challenge.Day11 (
   day11a,
+  day11b,
 )
 where
-
--- , day11b
 
 import AoC.Solution
 import Control.DeepSeq (NFData)
@@ -29,7 +23,7 @@ import qualified Text.Megaparsec.Char.Lexer as MPL
 data Monkey = Monkey
   { items :: Seq Int
   , op :: Int -> Int
-  , test :: Int -> Bool
+  , test :: Int
   , trueTo :: Int
   , falseTo :: Int
   }
@@ -63,7 +57,7 @@ monkeyParser = do
       , operator <$> MPL.decimal
       ]
   MP.space <* MP.string "Test: divisible by "
-  test <- (\d v -> v `mod` d == 0) <$> MPL.decimal
+  test <- MPL.decimal
   MP.space <* MP.string "If true: throw to monkey "
   trueTo <- MPL.decimal
   MP.space <* MP.string "If false: throw to monkey "
@@ -76,43 +70,60 @@ parseMonkeys :: String -> Either String [(Int, Monkey)]
 parseMonkeys =
   first MP.errorBundlePretty . MP.parse (MP.some monkeyParser) "day11"
 
-monkeyTurn :: IntMap (Monkey, Int) -> Int -> IntMap (Monkey, Int)
-monkeyTurn ms i =
-  IM.union (IM.singleton i (m', c')) $ foldl' go ms m.items
+type ItemFn = Monkey -> IntMap (Monkey, Int) -> Int -> IntMap (Monkey, Int)
+
+monkeyTurn :: ItemFn -> IntMap (Monkey, Int) -> Int -> IntMap (Monkey, Int)
+monkeyTurn f ms i =
+  IM.union (IM.singleton i (m', c')) $ foldl' (f m) ms m.items
  where
   (m, c) = ms IM.! i
   c' = c + S.length m.items
   m' = m{items = S.empty}
 
-  go :: IntMap (Monkey, Int) -> Int -> IntMap (Monkey, Int)
-  go mms w =
-    let w' = m.op w `div` 3
-        tgt = if m.test w' then m.trueTo else m.falseTo
-        (tm, tmc) = mms IM.! tgt
-        tm' = IM.singleton tgt (tm{items = tm.items S.|> w'}, tmc)
-     in IM.union tm' mms
+monkeyRound :: ItemFn -> IntMap (Monkey, Int) -> IntMap (Monkey, Int)
+monkeyRound f ms =
+  foldl' (monkeyTurn f) ms (IM.keys ms)
 
-monkeyRound :: IntMap (Monkey, Int) -> IntMap (Monkey, Int)
-monkeyRound ms =
-  foldl' monkeyTurn ms (IM.keys ms)
-
-solveA :: [(Int, Monkey)] -> Int
-solveA inp =
+solve :: Int -> ItemFn -> [(Int, Monkey)] -> Int
+solve nRounds f inp =
   let
     ms :: IntMap (Monkey, Int)
-    ms = IM.fromList . fmap (fmap (, 0)) $ inp
+    ms = IM.fromList . fmap (fmap (,0)) $ inp
 
-    end = iterate monkeyRound ms !! 20
-  in
-  product . take 2 . reverse . sort . fmap (snd . snd) . IM.toList $ end
+    end = iterate (monkeyRound f) ms !! nRounds
+   in
+    product . take 2 . reverse . sort . fmap (snd . snd) . IM.toList $ end
+
+monkeyItemA :: ItemFn
+monkeyItemA m ms w =
+  let w' = (m.op w `div` 3)
+      tgt = if w' `mod` m.test == 0 then m.trueTo else m.falseTo
+      (tm, tmc) = ms IM.! tgt
+      tm' = IM.singleton tgt (tm{items = tm.items S.|> w'}, tmc)
+   in IM.union tm' ms
 
 day11a :: Solution [(Int, Monkey)] Int
 day11a =
   Solution
     { sParse = parseMonkeys
     , sShow = show
-    , sSolve = Right . solveA
+    , sSolve = Right . solve 20 monkeyItemA
     }
 
-day11b :: Solution _ _
-day11b = Solution{sParse = Right, sShow = show, sSolve = Right}
+monkeyItemB :: Int -> ItemFn
+monkeyItemB i m ms w =
+  let w' = m.op w `mod` i
+      tgt = if w' `mod` m.test == 0 then m.trueTo else m.falseTo
+      (tm, tmc) = ms IM.! tgt
+      tm' = IM.singleton tgt (tm{items = tm.items S.|> w'}, tmc)
+   in IM.union tm' ms
+
+day11b :: Solution [(Int, Monkey)] Int
+day11b =
+  Solution
+    { sParse = parseMonkeys
+    , sShow = show
+    , sSolve = \x ->
+        let modAll = product . fmap ((.test) . snd) $ x
+         in Right . solve 10000 (monkeyItemB modAll) $ x
+    }
