@@ -94,15 +94,15 @@ monkeyRound f ms =
 
 solve :: Int -> ItemFn -> [(Int, Monkey)] -> Int
 solve nRounds f =
-    product
-      . take 2
-      . sortBy (flip compare)
-      . fmap (snd . snd)
-      . IM.toList
-      . (!! nRounds)
-      . iterate (monkeyRound f)
-      . IM.fromList
-      . fmap (fmap (, 0))
+  product
+    . take 2
+    . sortBy (flip compare)
+    . fmap (snd . snd)
+    . IM.toList
+    . (!! nRounds)
+    . iterate (monkeyRound f)
+    . IM.fromList
+    . fmap (fmap (,0))
 
 day11 :: Int -> (Int -> Int) -> Solution [(Int, Monkey)] Int
 day11 nRounds relief =
