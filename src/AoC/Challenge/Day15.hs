@@ -1,8 +1,3 @@
-{-# LANGUAGE PartialTypeSignatures #-}
-{-# OPTIONS_GHC -Wno-partial-type-signatures #-}
-{-# OPTIONS_GHC -Wno-unused-imports #-}
-{-# OPTIONS_GHC -Wno-unused-top-binds #-}
-
 module AoC.Challenge.Day15 (
   day15a,
   day15b,
@@ -13,6 +8,7 @@ import AoC.Solution
 import Data.Bifunctor (first)
 import Data.Map (Map)
 import qualified Data.Map as M
+import Data.Maybe (isJust)
 import Data.Set (Set)
 import qualified Data.Set as S
 import Data.Void (Void)
@@ -20,8 +16,6 @@ import Linear (V2 (..))
 import qualified Text.Megaparsec as MP
 import qualified Text.Megaparsec.Char as MP
 import qualified Text.Megaparsec.Char.Lexer as MPL
-
-import Debug.Trace
 
 type Point = V2 Int
 
@@ -66,7 +60,7 @@ solveA =
         then []
         else
           let xDiff = d - toL
-           in [ V2 x y | x <- [sx - xDiff .. sx + xDiff], V2 x y /= b ]
+           in [V2 x y | x <- [sx - xDiff .. sx + xDiff], V2 x y /= b]
 
 day15a :: Solution (Map Point Point) Int
 day15a =
@@ -76,5 +70,30 @@ day15a =
     , sSolve = Right . solveA
     }
 
-day15b :: Solution _ _
-day15b = Solution{sParse = Right, sShow = show, sSolve = Right}
+tuningFreq :: Point -> Int
+tuningFreq (V2 x y) = x * 4000000 + y
+
+solveB :: Int -> Map Point Point -> Int
+solveB maxCoord bs =
+    tuningFreq
+    . head
+    $ [ cand
+      | p@(b@(V2 bx by), s) <- M.toList bs
+      , let d = manhattan b s + 1
+      , dx <- [(-d) .. d]
+      , let x = bx + dx
+      , x >= 0 && x <= maxCoord
+      , dy <- [-(d - dx), d - dx]
+      , let y = by + dy
+      , y >= 0 && y <= maxCoord
+      , let cand = V2 x y
+      , all (\(b', s') -> manhattan b' cand > manhattan b' s') $ M.toList bs
+      ]
+
+day15b :: Solution (Map Point Point) Int
+day15b =
+  Solution
+    { sParse = parseSensors
+    , sShow = show
+    , sSolve = Right . solveB 4000000
+    }
