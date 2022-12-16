@@ -75,7 +75,7 @@ tuningFreq (V2 x y) = x * 4000000 + y
 
 solveB :: Int -> Map Point Point -> Int
 solveB maxCoord bs =
-    tuningFreq
+  tuningFreq
     . head
     $ [ cand
       | p@(b@(V2 bx by), s) <- M.toList bs
