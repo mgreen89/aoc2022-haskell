@@ -1,8 +1,3 @@
-{-# LANGUAGE PartialTypeSignatures #-}
-{-# OPTIONS_GHC -Wno-partial-type-signatures #-}
-{-# OPTIONS_GHC -Wno-unused-imports #-}
-{-# OPTIONS_GHC -Wno-unused-top-binds #-}
-
 module AoC.Challenge.Day16 (
   day16a,
   day16b,
@@ -28,6 +23,8 @@ import Data.Void (Void)
 import qualified Text.Megaparsec as MP
 import qualified Text.Megaparsec.Char as MP
 import qualified Text.Megaparsec.Char.Lexer as MPL
+
+import Debug.Trace
 
 -- Sample input line:
 -- Valve II has flow rate=0; tunnels lead to valves AA, JJ
@@ -110,5 +107,77 @@ solveA inp =
 day16a :: Solution (Map String (Int, [String])) Int
 day16a = Solution{sParse = parse, sShow = show, sSolve = Right . solveA}
 
-day16b :: Solution _ _
-day16b = Solution{sParse = Right, sShow = show, sSolve = Right}
+data Agent = Agent
+  { prev :: String
+  , to :: String
+  , readyIn :: Int
+  }
+  deriving (Show)
+
+data CtxB = CtxB
+  { opened :: Set String
+  , pPerT :: Int
+  , pTot :: Int
+  , time :: Int
+  , agents :: [Agent]
+  }
+  deriving (Show)
+
+solveB :: Map String (Int, [String]) -> Int
+solveB inp =
+  (\c -> c.pTot)
+    . maximumBy (\a b -> compare a.pTot b.pTot)
+    $ go
+      []
+      CtxB
+        { opened = S.empty
+        , pPerT = 0
+        , pTot = 0
+        , time = 4 -- Spent 4 turns teaching the elephant
+        , agents =
+            [ Agent{prev = "AA", to = "AA", readyIn = 0}
+            , Agent{prev = "AA", to = "AA", readyIn = 0}
+            ]
+        }
+ where
+  ds :: Map String (Map String Int)
+  ds = getDistances inp
+
+  go :: [CtxB] -> CtxB -> [CtxB]
+  go a c =
+    if c.time == 30
+      then c : a
+      else foldl go a (next c)
+
+  next :: CtxB -> [CtxB]
+  next ctx =
+    [ CtxB{..}
+    | let activeAgents = filter ((== 0) . (.readyIn)) ctx.agents
+    , let enRouteAgents = filter ((/= 0) . (.readyIn)) ctx.agents
+    , as <- traverse (nextAgents ctx) ctx.agents
+    , length as == S.size (S.fromList (fmap (.to) as))
+    , let opened = S.union ctx.opened . S.fromList . fmap (.to) $ as
+    , let pPerT = ctx.pPerT + (sum . fmap (fst . (inp M.!) . (.to)) $ activeAgents)
+    , let pTot = ctx.pTot + ctx.pPerT
+    , let time = ctx.time + 1
+    , time <= 30
+    , let agents = as
+    ]
+
+  nextAgents :: CtxB -> Agent -> [Agent]
+  nextAgents ctx a =
+    if a.readyIn == 0
+      then
+        [ Agent{..}
+        | let prev = a.to
+        , let dists = ds M.! prev
+        , let closed = filter (`S.notMember` ctx.opened) $ M.keys dists
+        , let inRange = filter ((< (30 - ctx.time)) . (dists M.!)) closed
+        , to <- if null inRange then [prev] else inRange
+        , let readyIn = if to == prev then 30 - ctx.time else dists M.! to + 1
+        , ctx.time + readyIn <= 30
+        ]
+      else [a{readyIn = a.readyIn - 1}]
+
+day16b :: Solution (Map String (Int, [String])) Int
+day16b = Solution{sParse = parse, sShow = show, sSolve = Right . solveB}
