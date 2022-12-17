@@ -5,12 +5,13 @@ module AoC.Challenge.Day12 (
 where
 
 import AoC.Solution
-import AoC.Util (dijkstra, maybeToEither)
+import AoC.Util (dijkstra, explore, maybeToEither)
 import Data.Char (isLower, ord)
 import Data.Map (Map)
 import qualified Data.Map as M
 import Data.Maybe (mapMaybe)
-import Debug.Trace
+import Data.OrdPSQ (OrdPSQ)
+import qualified Data.OrdPSQ as PSQ
 import Linear (V2 (..))
 
 type Point = V2 Int
@@ -54,8 +55,8 @@ getNeighbs m p =
         . getCardinalNeighbs
         $ p
 
-solve :: (Point, Point, Map Point Int) -> Maybe Int
-solve (start, finish, m) =
+solveA :: (Point, Point, Map Point Int) -> Maybe Int
+solveA (start, finish, m) =
   dijkstra (getNeighbs m) start finish
 
 day12a :: Solution (Point, Point, Map Point Int) Int
@@ -63,20 +64,30 @@ day12a =
   Solution
     { sParse = maybeToEither "no start or end" . findStartEnd . parseMap
     , sShow = show
-    , sSolve = maybeToEither "no solve" . solve
+    , sSolve = maybeToEither "no solve" . solveA
     }
 
--- Yes this is super dumb and ripe for massive optimization.
+getNeighbs' :: Map Point Int -> Point -> Map Point Int
+getNeighbs' m p =
+  let pHeight = m M.! p
+   in fmap (const 1) -- Just count the steps, no cost.
+        . M.filter (\h -> h >= pHeight - 1)
+        . M.fromList
+        . mapMaybe (\n -> fmap (n,) m M.!? n)
+        . getCardinalNeighbs
+        $ p
+
 day12b :: Solution (Point, Point, Map Point Int) Int
 day12b =
   Solution
     { sParse = maybeToEither "no start or end" . findStartEnd . parseMap
     , sShow = show
     , sSolve = \(_, f, m) ->
-        Right
-          . minimum
-          . mapMaybe (\a -> solve (a, f, m))
-          . M.keys
-          . M.filter (== 0)
-          $ m
+        let allPaths = explore (getNeighbs' m) f
+         in Right
+              . minimum
+              . mapMaybe (allPaths M.!?)
+              . M.keys
+              . M.filter (== 0)
+              $ m
     }

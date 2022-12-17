@@ -13,6 +13,7 @@ module AoC.Util (
   listTo2Tuple,
   aStar,
   dijkstra,
+  explore,
   withColor,
 )
 where
@@ -171,6 +172,43 @@ dijkstra ::
   -- | Total cost if successful
   Maybe a
 dijkstra = aStar (const 0)
+
+{- |Fully explore a graph using a dijkstra-like algorithm.
+ Returns a map of distances from the start node for every found node.
+-}
+explore ::
+  forall a n.
+  (Ord a, Num a, Ord n) =>
+  -- | Neighbours and costs
+  (n -> Map n a) ->
+  -- | Start
+  n ->
+  -- | Total cost if successful
+  Map n a
+explore getNs start =
+  go M.empty (PSQ.singleton start 0 0)
+ where
+  go :: Map n a -> OrdPSQ n a a -> Map n a
+  go visited unvisited =
+    case step (visited, unvisited) of
+      Just (v, uv) -> go v uv
+      Nothing -> visited
+
+  step :: (Map n a, OrdPSQ n a a) -> Maybe (Map n a, OrdPSQ n a a)
+  step (v, uv) = do
+    (currP, _, currV, uv') <- PSQ.minView uv
+    let v' = M.insert currP currV v
+    pure (v', M.foldlWithKey' (handleNeighbour currV) uv' (getNs currP))
+   where
+    handleNeighbour :: a -> OrdPSQ n a a -> n -> a -> OrdPSQ n a a
+    handleNeighbour currCost q n nCost
+      | M.member n v = q
+      | otherwise =
+          insertIfBetter
+            n
+            (currCost + nCost)
+            (currCost + nCost)
+            q
 
 --------------------------------------
 -- Output
