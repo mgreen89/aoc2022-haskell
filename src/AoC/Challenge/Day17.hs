@@ -1,8 +1,3 @@
-{-# LANGUAGE PartialTypeSignatures #-}
-{-# OPTIONS_GHC -Wno-partial-type-signatures #-}
-{-# OPTIONS_GHC -Wno-unused-imports #-}
-{-# OPTIONS_GHC -Wno-unused-top-binds #-}
-
 module AoC.Challenge.Day17 (
   day17a,
   day17b,
@@ -15,6 +10,7 @@ import Control.Monad (foldM)
 import Data.Foldable (maximumBy)
 import Data.Set (Set)
 import qualified Data.Set as S
+import Debug.Trace
 import GHC.Generics (Generic)
 import Linear (V2 (..))
 import Text.Read (readEither)
@@ -51,7 +47,7 @@ rocks =
   , [V2 0 0, V2 1 0, V2 0 1, V2 1 1]
   ]
 
-fall :: ([Gust], Int, Set Point) -> Shape -> ([Gust], Int, Set Point)
+fall :: ([(Int, Gust)], Int, Set Point) -> Shape -> ([(Int, Gust)], Int, Set Point)
 fall (gusts, highest, room) rock =
   let start = fmap (+ V2 2 (highest + 4)) rock
       Left (final, gusts') = foldM go (start, gusts) $ [0 ..]
@@ -63,9 +59,9 @@ fall (gusts, highest, room) rock =
           $ room'
    in (gusts', highest', room')
  where
-  go :: (Shape, [Gust]) -> Int -> Either (Shape, [Gust]) (Shape, [Gust])
+  go :: (Shape, [(Int, Gust)]) -> Int -> Either (Shape, [(Int, Gust)]) (Shape, [(Int, Gust)])
   go (s, gs) _ =
-    let pushAttempt = fmap (+ toDir (head gs)) s
+    let pushAttempt = fmap (+ toDir (snd $ head gs)) s
         pushed = if collides room pushAttempt then s else pushAttempt
         dropAttempt = fmap (+ V2 0 (-1)) pushed
      in if collides room dropAttempt
@@ -81,11 +77,11 @@ solveA gusts =
   let
     endlessGusts = concat $ repeat gusts
     endlessRocks = concat $ repeat rocks
-  in
-  (\(_, h, _) -> h)
-  . (!! 2022)
-  . scanl fall (endlessGusts, 0, S.empty)
-  $ endlessRocks
+   in
+    (\(_, h, _) -> h)
+      . (!! 2022)
+      . scanl fall (zip [0 ..] endlessGusts, 0, S.empty)
+      $ endlessRocks
 
 day17a :: Solution [Gust] Int
 day17a =
@@ -95,5 +91,24 @@ day17a =
     , sSolve = Right . solveA
     }
 
-day17b :: Solution _ _
-day17b = Solution{sParse = Right, sShow = show, sSolve = Right}
+solveB :: [Gust] -> Int
+solveB gusts =
+  let
+    gustCycle = traceShowId $ length gusts
+    endlessGusts = concat $ repeat gusts
+    endlessRocks = concat $ repeat rocks
+   in
+    (\(_, h, _) -> h)
+      . traceShowId
+      . head
+      . filter (\(gs, _, _) -> (== 0) . (`mod` gustCycle) . fst . head $ gs)
+      . scanl fall (zip [0 ..] endlessGusts, 0, S.empty)
+      $ endlessRocks
+
+day17b :: Solution [Gust] Int
+day17b =
+  Solution
+    { sParse = traverse (readEither . (: []))
+    , sShow = show
+    , sSolve = Right . solveB
+    }
