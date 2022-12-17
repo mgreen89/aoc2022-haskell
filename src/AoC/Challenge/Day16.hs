@@ -65,53 +65,14 @@ getDistances m =
   workingValves :: [String]
   workingValves = M.keys . M.filter ((/= 0) . fst) $ m
 
-type Ctx = (String, Set String, Int, Int, Int)
-
-solveA :: Map String (Int, [String]) -> Int
-solveA inp =
-  (\(_, _, _, p, _) -> p)
-    . maximumBy (\(_, _, _, p, _) (_, _, _, q, _) -> compare p q)
-    $ go [] ("AA", S.empty, 0, 0, 0)
- where
-  -- Never going to turn on a valve with flow rate zero.
-  -- Build up a new map that doesn't include any of those valves, and
-  -- has distances from working valve (and AA, for the first move) to every
-  -- other valve pre-computed.
-  ds :: Map String (Map String Int)
-  ds = getDistances inp
-
-  go :: [Ctx] -> Ctx -> [Ctx]
-  go a x =
-    case x of
-      x@(_, _, _, p, 30) -> x : a
-      x -> foldl go a (next x)
-
-  next :: Ctx -> [Ctx]
-  next (loc, open, pPerT, pTot, time) =
-    [ (l, o, ppt, pt, t)
-    | let dists = ds M.! loc
-    , let closed = filter (`S.notMember` open) $ M.keys dists
-    , let inRange = filter ((< (30 - time)) . (dists M.!)) closed
-    , l <- if null inRange then [loc] else inRange
-    , let o = S.insert l open
-    , let dt = if l == loc then 30 - time else dists M.! l + 1
-    , let ppt = if l == loc then pPerT else pPerT + fst (inp M.! l)
-    , let pt = pTot + (pPerT * dt)
-    , let t = time + dt
-    , t <= 30
-    ]
-
-day16a :: Solution (Map String (Int, [String])) Int
-day16a = Solution{sParse = parse, sShow = show, sSolve = Right . solveA}
-
 data Agent = Agent
   { prev :: String
   , to :: String
-  , readyIn :: Int
+  , readyAt :: Int
   }
   deriving (Show)
 
-data CtxB = CtxB
+data Ctx = Ctx
   { opened :: Set String
   , pPerT :: Int
   , pTot :: Int
@@ -120,61 +81,75 @@ data CtxB = CtxB
   }
   deriving (Show)
 
-solveB :: Map String (Int, [String]) -> Int
-solveB inp =
+-- Get a metric to determine how "good" a path is.
+-- This will be used to compare contexts with the same set of valves opened,
+-- so needs to differentiate between them.
+-- Use the maximum pressure relieved by the set of values as the metric.
+getMetric :: Int -> Ctx -> Int
+getMetric timeLimit ctx =
+  -- Max pressure possible relieved by the opened valves.
+  ctx.pTot + ctx.pPerT * (timeLimit - ctx.time)
+
+solveB :: Int -> Int -> Map String (Int, [String]) -> Int
+solveB nAgents timeLimit inp =
   (\c -> c.pTot)
     . maximumBy (\a b -> compare a.pTot b.pTot)
     $ go
       []
-      CtxB
+      Ctx
         { opened = S.empty
         , pPerT = 0
         , pTot = 0
-        , time = 4 -- Spent 4 turns teaching the elephant
-        , agents =
-            [ Agent{prev = "AA", to = "AA", readyIn = 0}
-            , Agent{prev = "AA", to = "AA", readyIn = 0}
-            ]
+        , time = 0
+        , agents = replicate nAgents Agent{prev = "AA", to = "AA", readyAt = 0}
         }
  where
   ds :: Map String (Map String Int)
   ds = getDistances inp
 
-  go :: [CtxB] -> CtxB -> [CtxB]
+  go :: [Ctx] -> Ctx -> [Ctx]
   go a c =
-    if c.time == 30
+    if c.time == timeLimit
       then c : a
       else foldl go a (next c)
 
-  next :: CtxB -> [CtxB]
+  next :: Ctx -> [Ctx]
   next ctx =
-    [ CtxB{..}
-    | let activeAgents = filter ((== 0) . (.readyIn)) ctx.agents
-    , let enRouteAgents = filter ((/= 0) . (.readyIn)) ctx.agents
-    , as <- traverse (nextAgents ctx) ctx.agents
+    [ Ctx{..}
+    | let readyAgents = filter ((== ctx.time) . (.readyAt)) ctx.agents
+    , let enRouteAgents = filter ((/= ctx.time) . (.readyAt)) ctx.agents
+    , as <- traverse (nextAgents ctx) readyAgents
+      -- Ensure all agents are going to different places!
     , length as == S.size (S.fromList (fmap (.to) as))
+      -- Count as opened as soon as selected so it's not selected again.
     , let opened = S.union ctx.opened . S.fromList . fmap (.to) $ as
-    , let pPerT = ctx.pPerT + (sum . fmap (fst . (inp M.!) . (.to)) $ activeAgents)
-    , let pTot = ctx.pTot + ctx.pPerT
-    , let time = ctx.time + 1
-    , time <= 30
-    , let agents = as
+      -- Only count for pressure per time when it's actually opened - i.e.
+      -- when just selected a new valve to visit.
+    , let pPerT = ctx.pPerT + (sum . fmap (fst . (inp M.!) . (.prev)) $ as)
+    , let agents = as ++ enRouteAgents
+      -- Go until either reached time limit or an agent is ready.
+    , let nextReady = min timeLimit . minimum . fmap (.readyAt) $ agents
+    , let dt = nextReady - ctx.time
+      -- Update the total pressure and time.
+    , let pTot = ctx.pTot + dt * pPerT
+    , let time = ctx.time + dt
+    , time <= timeLimit
     ]
 
-  nextAgents :: CtxB -> Agent -> [Agent]
+  nextAgents :: Ctx -> Agent -> [Agent]
   nextAgents ctx a =
-    if a.readyIn == 0
-      then
-        [ Agent{..}
-        | let prev = a.to
-        , let dists = ds M.! prev
-        , let closed = filter (`S.notMember` ctx.opened) $ M.keys dists
-        , let inRange = filter ((< (30 - ctx.time)) . (dists M.!)) closed
-        , to <- if null inRange then [prev] else inRange
-        , let readyIn = if to == prev then 30 - ctx.time else dists M.! to + 1
-        , ctx.time + readyIn <= 30
-        ]
-      else [a{readyIn = a.readyIn - 1}]
+    [ Agent{..}
+    | let prev = a.to
+    , let dists = ds M.! prev
+    , let closed = filter (`S.notMember` ctx.opened) $ M.keys dists
+    , let inRange = filter ((< (timeLimit - ctx.time)) . (dists M.!)) closed
+    , to <- if null inRange then [prev] else inRange
+    , let readyAt = if to == prev then timeLimit else ctx.time + dists M.! to + 1
+    , readyAt <= timeLimit
+    ]
+
+day16a :: Solution (Map String (Int, [String])) Int
+day16a = Solution{sParse = parse, sShow = show, sSolve = Right . solveB 1 30}
 
 day16b :: Solution (Map String (Int, [String])) Int
-day16b = Solution{sParse = parse, sShow = show, sSolve = Right . solveB}
+day16b = Solution{sParse = parse, sShow = show, sSolve = Right . solveB 2 26}
