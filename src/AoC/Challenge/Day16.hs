@@ -5,7 +5,7 @@ module AoC.Challenge.Day16 (
 where
 
 import AoC.Solution
-import AoC.Util (dijkstra)
+import AoC.Util (explore)
 import Control.Monad (when)
 import qualified Data.Array as A
 import qualified Data.Array.MArray as A
@@ -52,18 +52,15 @@ parse =
 getDistances :: Map String (Int, [String]) -> Map String (Map String Int)
 getDistances m =
   M.fromList
-    . fmap (\v -> (v, foldl' (go v) M.empty workingValves))
+    . fmap (\v -> (v, getAllPaths v workingValves))
     $ ("AA" : workingValves)
  where
-  -- Could change this to fully explore the space from each starting node
-  -- once and look up the resulting lengths.
-  go :: String -> Map String Int -> String -> Map String Int
-  go src a dst
-    | src == dst = a
-    | otherwise = M.insert dst (fromJust $ dijkstra getNeighbs src dst) a
+  getAllPaths :: String -> [String] -> Map String Int
+  getAllPaths src dsts =
+    M.filterWithKey (\k _ -> k `elem` dsts) $ explore getNeighbs src
 
   getNeighbs :: String -> Map String Int
-  getNeighbs = M.fromList . (flip zip) (repeat 1) . snd . (m M.!)
+  getNeighbs = M.fromList . flip zip (repeat 1) . snd . (m M.!)
 
   workingValves :: [String]
   workingValves = M.keys . M.filter ((/= 0) . fst) $ m
