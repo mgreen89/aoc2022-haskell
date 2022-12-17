@@ -173,7 +173,7 @@ dijkstra ::
   Maybe a
 dijkstra = aStar (const 0)
 
-{- |Fully explore a graph using a dijkstra-like algorithm.
+{- | Fully explore a graph using a dijkstra-like algorithm.
  Returns a map of distances from the start node for every found node.
 -}
 explore ::

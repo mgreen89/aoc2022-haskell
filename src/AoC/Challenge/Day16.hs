@@ -119,19 +119,19 @@ solveB nAgents timeLimit inp =
     | let readyAgents = filter ((== ctx.time) . (.readyAt)) ctx.agents
     , let enRouteAgents = filter ((/= ctx.time) . (.readyAt)) ctx.agents
     , as <- traverse (nextAgents ctx) readyAgents
-      -- Ensure all agents are going to different places!
-    , length as == S.size (S.fromList (fmap (.to) as))
-      -- Count as opened as soon as selected so it's not selected again.
-    , let opened = S.union ctx.opened . S.fromList . fmap (.to) $ as
-      -- Only count for pressure per time when it's actually opened - i.e.
-      -- when just selected a new valve to visit.
-    , let pPerT = ctx.pPerT + (sum . fmap (fst . (inp M.!) . (.prev)) $ as)
+    , -- Ensure all agents are going to different places!
+    length as == S.size (S.fromList (fmap (.to) as))
+    , -- Count as opened as soon as selected so it's not selected again.
+    let opened = S.union ctx.opened . S.fromList . fmap (.to) $ as
+    , -- Only count for pressure per time when it's actually opened - i.e.
+    -- when just selected a new valve to visit.
+    let pPerT = ctx.pPerT + (sum . fmap (fst . (inp M.!) . (.prev)) $ as)
     , let agents = as ++ enRouteAgents
-      -- Go until either reached time limit or an agent is ready.
-    , let nextReady = min timeLimit . minimum . fmap (.readyAt) $ agents
+    , -- Go until either reached time limit or an agent is ready.
+    let nextReady = min timeLimit . minimum . fmap (.readyAt) $ agents
     , let dt = nextReady - ctx.time
-      -- Update the total pressure and time.
-    , let pTot = ctx.pTot + dt * pPerT
+    , -- Update the total pressure and time.
+    let pTot = ctx.pTot + dt * pPerT
     , let time = ctx.time + dt
     , time <= timeLimit
     ]
