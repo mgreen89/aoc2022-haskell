@@ -8,6 +8,7 @@ module AoC.Common.Point (
 ) where
 
 import Control.Applicative
+import Data.Foldable (toList)
 import qualified Data.List.NonEmpty as NE
 import Data.Map (Map)
 import qualified Data.Map as M
@@ -16,7 +17,6 @@ import Data.Semigroup
 import Data.Semigroup.Foldable
 import Linear (Additive, V2 (..), basis, negated)
 import Text.Read (readEither)
-import Data.Foldable (toList)
 
 -- Cardinal neighbour moves.
 cardinalDiffs :: (Traversable t, Additive t, Num a) => [t a]
