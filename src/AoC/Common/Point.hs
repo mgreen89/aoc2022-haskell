@@ -3,10 +3,12 @@ module AoC.Common.Point (
   allNeighbs,
   manhattan,
   boundingBox,
+  boundingBox',
   parse2dMap,
 ) where
 
 import Control.Applicative
+import qualified Data.List.NonEmpty as NE
 import Data.Map (Map)
 import qualified Data.Map as M
 import Data.Monoid
@@ -14,6 +16,7 @@ import Data.Semigroup
 import Data.Semigroup.Foldable
 import Linear (Additive, V2 (..), basis, negated)
 import Text.Read (readEither)
+import Data.Foldable (toList)
 
 -- Cardinal neighbour moves.
 cardinalDiffs :: (Traversable t, Additive t, Num a) => [t a]
@@ -47,6 +50,10 @@ boundingBox :: (Foldable1 f, Applicative g, Ord a) => f (g a) -> (g a, g a)
 boundingBox =
   (\(Ap mi, Ap ma) -> (getMin <$> mi, getMax <$> ma))
     . foldMap1 (\p -> (Ap (Min <$> p), Ap (Max <$> p)))
+
+-- | `boundingBox` that safely works on generic (possible empty) foldables.
+boundingBox' :: (Foldable f, Applicative g, Ord a) => f (g a) -> Maybe (g a, g a)
+boundingBox' = fmap boundingBox . NE.nonEmpty . toList
 
 -- | Parse String data into a Map
 parse2dMap :: String -> Either String (Map (V2 Int) Int)

@@ -5,10 +5,11 @@ module AoC.Challenge.Day18 (
 where
 
 import AoC.Common.Graph (explore)
-import AoC.Common.Point (cardinalNeighbs)
+import AoC.Common.Point (boundingBox, cardinalNeighbs)
 import AoC.Solution
 import Data.Bifunctor (first)
 import Data.Foldable (foldl')
+import qualified Data.List.NonEmpty as NE
 import Data.Map (Map)
 import qualified Data.Map as M
 import Data.Set (Set)
@@ -47,17 +48,6 @@ solveA ps =
  where
   points = S.fromList ps
 
-boundingBox :: [V3 Int] -> (V3 Int, V3 Int)
-boundingBox ps =
-  let (V3 x y z) = head ps
-   in toBB . foldl' go (x, y, z, x, y, z) $ tail ps
- where
-  go (xMin, yMin, zMin, xMax, yMax, zMax) (V3 x y z) =
-    (min xMin x, min yMin y, min zMin z, max xMax x, max yMax y, max zMax z)
-
-  toBB (xMin, yMin, zMin, xMax, yMax, zMax) =
-    (V3 xMin yMin zMin, V3 xMax yMax zMax)
-
 day18a :: Solution [Point] Int
 day18a = Solution{sParse = parse, sShow = show, sSolve = Right . solveA}
 
@@ -66,7 +56,7 @@ solveB ps =
   let points = S.fromList ps
 
       -- Get the bounding box of the remaining points.
-      (bbMin, bbMax) = boundingBox ps
+      (bbMin, bbMax) = boundingBox (NE.fromList ps)
 
       -- Starting from just outside the bounding box, try and get to every
       -- air neighbour without using droplet spaces. If we can't get to it,
