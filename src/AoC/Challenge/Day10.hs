@@ -39,7 +39,7 @@ day10a =
         Right
           . sum
           . fmap (uncurry (*))
-          . filter (\(c, x) -> (c - 20) `mod` 40 == 0)
+          . filter (\(c, _) -> (c - 20) `mod` 40 == 0)
           . trackX
     }
 

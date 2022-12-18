@@ -32,10 +32,10 @@ type Input = (Stacks, [Move])
 
 parser :: MP.Parsec Void String Input
 parser = do
-  lines <- MP.many stackParser
+  ls <- MP.many stackParser
   MP.manyTill MP.anySingle (MP.string "\n\n")
   moves <- MP.many (moveParser <* MP.optional MP.newline)
-  pure (linesToStacks lines, moves)
+  pure (linesToStacks ls, moves)
  where
   stackParser :: MP.Parsec Void String [Maybe Char]
   stackParser =

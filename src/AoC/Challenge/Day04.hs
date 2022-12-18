@@ -3,15 +3,12 @@ module AoC.Challenge.Day04 (
   day04b,
 ) where
 
+import AoC.Common (listTup2)
 import AoC.Solution
 import AoC.Util (maybeToEither)
 import Control.Monad ((<=<))
 import Data.List.Split (splitOn)
 import Text.Read (readMaybe)
-
-listTup2 :: [a] -> Maybe (a, a)
-listTup2 [x, y] = Just (x, y)
-listTup2 _ = Nothing
 
 type Areas = ((Int, Int), (Int, Int))
 

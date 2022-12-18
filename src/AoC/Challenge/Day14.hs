@@ -4,22 +4,19 @@ module AoC.Challenge.Day14 (
 )
 where
 
+import AoC.Common (pairs)
 import AoC.Solution
 import Data.Bifunctor (first)
-import Data.List (tails, unfoldr)
+import Data.List (unfoldr)
 import Data.Set (Set)
 import qualified Data.Set as S
 import Data.Void (Void)
-import Debug.Trace
 import Linear (V2 (..))
 import qualified Text.Megaparsec as MP
 import qualified Text.Megaparsec.Char as MP
 import qualified Text.Megaparsec.Char.Lexer as MPL
 
 type Point = V2 Int
-
-windows :: Int -> [a] -> [[a]]
-windows n = foldr (zipWith (:)) (repeat []) . take n . tails
 
 lineParser :: MP.Parsec Void String [Point]
 lineParser = do
@@ -32,7 +29,7 @@ parseLines =
   traverse (first MP.errorBundlePretty . MP.parse lineParser "day14") . lines
 
 pointsToSet :: [Point] -> Set Point
-pointsToSet = S.fromList . concatMap (\[a, b] -> segment a b) . windows 2
+pointsToSet = S.fromList . concatMap (uncurry segment) . pairs
  where
   segment :: Point -> Point -> [Point]
   segment (V2 x1 y1) (V2 x2 y2)

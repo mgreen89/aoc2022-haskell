@@ -8,7 +8,6 @@ import AoC.Solution
 import Data.Bifunctor (first)
 import Data.Map (Map)
 import qualified Data.Map as M
-import Data.Maybe (isJust)
 import Data.Set (Set)
 import qualified Data.Set as S
 import Data.Void (Void)
@@ -78,7 +77,7 @@ solveB maxCoord bs =
   tuningFreq
     . head
     $ [ cand
-      | p@(b@(V2 bx by), s) <- M.toList bs
+      | (b@(V2 bx by), s) <- M.toList bs
       , let d = manhattan b s + 1
       , dx <- [(-d) .. d]
       , let x = bx + dx

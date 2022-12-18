@@ -4,23 +4,17 @@ module AoC.Challenge.Day12 (
 )
 where
 
+import AoC.Common.Graph (dijkstra, explore)
+import AoC.Common.Point (cardinalNeighbs)
 import AoC.Solution
-import AoC.Util (dijkstra, explore, maybeToEither)
+import AoC.Util (maybeToEither)
 import Data.Char (isLower, ord)
 import Data.Map (Map)
 import qualified Data.Map as M
 import Data.Maybe (mapMaybe)
-import Data.OrdPSQ (OrdPSQ)
-import qualified Data.OrdPSQ as PSQ
 import Linear (V2 (..))
 
 type Point = V2 Int
-
-cardinalNeighbs :: [Point]
-cardinalNeighbs = [V2 0 1, V2 1 0, V2 0 (-1), V2 (-1) 0]
-
-getCardinalNeighbs :: Point -> [Point]
-getCardinalNeighbs p = fmap (p +) cardinalNeighbs
 
 parseMap :: String -> Map Point Char
 parseMap =
@@ -33,8 +27,8 @@ parseMap =
 type IterCtx = (Maybe Point, Maybe Point, Map Point Int)
 
 findStartEnd :: Map Point Char -> Maybe (Point, Point, Map Point Int)
-findStartEnd m =
-  case M.foldrWithKey go (Nothing, Nothing, M.empty) m of
+findStartEnd mp =
+  case M.foldrWithKey go (Nothing, Nothing, M.empty) mp of
     (Just s, Just f, m) -> Just (s, f, m)
     _ -> Nothing
  where
@@ -52,7 +46,7 @@ getNeighbs m p =
         . M.filter (<= (pHeight + 1))
         . M.fromList
         . mapMaybe (\n -> fmap (n,) m M.!? n)
-        . getCardinalNeighbs
+        . cardinalNeighbs
         $ p
 
 solveA :: (Point, Point, Map Point Int) -> Maybe Int
@@ -74,7 +68,7 @@ getNeighbs' m p =
         . M.filter (\h -> h >= pHeight - 1)
         . M.fromList
         . mapMaybe (\n -> fmap (n,) m M.!? n)
-        . getCardinalNeighbs
+        . cardinalNeighbs
         $ p
 
 day12b :: Solution (Point, Point, Map Point Int) Int

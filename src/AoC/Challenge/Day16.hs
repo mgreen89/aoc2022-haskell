@@ -4,27 +4,18 @@ module AoC.Challenge.Day16 (
 )
 where
 
+import AoC.Common.Graph (explore)
 import AoC.Solution
-import AoC.Util (explore)
-import Control.Monad (when)
-import qualified Data.Array as A
-import qualified Data.Array.MArray as A
-import Data.Array.ST (STArray)
-import qualified Data.Array.ST as A
-import Data.Bifunctor (bimap, first)
-import Data.Foldable (foldl', for_)
+import Data.Bifunctor (first)
 import Data.List (maximumBy)
 import Data.Map (Map)
 import qualified Data.Map as M
-import Data.Maybe (fromJust)
 import Data.Set (Set)
 import qualified Data.Set as S
 import Data.Void (Void)
 import qualified Text.Megaparsec as MP
 import qualified Text.Megaparsec.Char as MP
 import qualified Text.Megaparsec.Char.Lexer as MPL
-
-import Debug.Trace
 
 -- Sample input line:
 -- Valve II has flow rate=0; tunnels lead to valves AA, JJ
@@ -85,10 +76,12 @@ data Ctx = Ctx
 -- This will be used to compare contexts with the same set of valves opened,
 -- so needs to differentiate between them.
 -- Use the maximum pressure relieved by the set of values as the metric.
+{-
 getMetric :: Int -> Ctx -> Int
 getMetric timeLimit ctx =
   -- Max pressure possible relieved by the opened valves.
   ctx.pTot + ctx.pPerT * (timeLimit - ctx.time)
+-}
 
 solveB :: Int -> Int -> Map String (Int, [String]) -> Int
 solveB nAgents timeLimit inp =

@@ -4,11 +4,11 @@ module AoC.Challenge.Day18 (
 )
 where
 
+import AoC.Common.Graph (explore)
+import AoC.Common.Point (cardinalNeighbs)
 import AoC.Solution
-import AoC.Util (explore)
 import Data.Bifunctor (first)
 import Data.Foldable (foldl')
-import Data.List (partition)
 import Data.Map (Map)
 import qualified Data.Map as M
 import Data.Set (Set)
@@ -19,22 +19,7 @@ import qualified Text.Megaparsec as MP
 import qualified Text.Megaparsec.Char as MP
 import qualified Text.Megaparsec.Char.Lexer as MPL
 
-import Debug.Trace
-
 type Point = V3 Int
-
-cardinalNeighbs :: [Point]
-cardinalNeighbs =
-  [ V3 1 0 0
-  , V3 (-1) 0 0
-  , V3 0 1 0
-  , V3 0 (-1) 0
-  , V3 0 0 1
-  , V3 0 0 (-1)
-  ]
-
-getCardinalNeighbs :: Point -> [Point]
-getCardinalNeighbs p = fmap (+ p) cardinalNeighbs
 
 pointParser :: MP.Parsec Void String Point
 pointParser =
@@ -54,7 +39,7 @@ parse =
 
 getNeighbCount :: Set Point -> [Int] -> Point -> [Int]
 getNeighbCount ps a =
-  (: a) . length . filter id . fmap (`S.member` ps) . getCardinalNeighbs
+  (: a) . length . filter id . fmap (`S.member` ps) . cardinalNeighbs
 
 solveA :: [Point] -> Int
 solveA ps =
@@ -79,7 +64,6 @@ day18a = Solution{sParse = parse, sShow = show, sSolve = Right . solveA}
 solveB :: [Point] -> Int
 solveB ps =
   let points = S.fromList ps
-      neighbCounts = zip ps . foldl' (getNeighbCount points) [] $ ps
 
       -- Get the bounding box of the remaining points.
       (bbMin, bbMax) = boundingBox ps
@@ -88,7 +72,7 @@ solveB ps =
       -- air neighbour without using droplet spaces. If we can't get to it,
       -- it must be internal.
       bbMin'@(V3 xMin yMin zMin) = bbMin - V3 1 1 1
-      bbMax'@(V3 xMax yMax zMax) = bbMax + V3 1 1 1
+      (V3 xMax yMax zMax) = bbMax + V3 1 1 1
 
       possNeighbs :: V3 Int -> Map (V3 Int) Int
       possNeighbs =
@@ -96,7 +80,7 @@ solveB ps =
           . (`zip` repeat 0)
           . filter (\(V3 x y z) -> x >= xMin && y >= yMin && z >= zMin && x <= xMax && y <= yMax && z <= zMax)
           . filter (`S.notMember` points)
-          . getCardinalNeighbs
+          . cardinalNeighbs
 
       -- Find all the external air tiles.
       air = explore possNeighbs bbMin'
@@ -104,11 +88,10 @@ solveB ps =
       -- Check all the neighbours of droplets to see if they're external
       -- air tiles. If so, that's an external face.
       externalNeighbs =
-          filter (`M.member` air)
+        filter (`M.member` air)
           . filter (`S.notMember` points)
-          . concatMap getCardinalNeighbs
+          . concatMap cardinalNeighbs
           $ ps
-
    in length externalNeighbs
 
 day18b :: Solution [Point] Int

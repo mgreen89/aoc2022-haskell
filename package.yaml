@@ -44,6 +44,7 @@ dependencies:
 - psqueues
 - recursion-schemes
 - safe
+- semigroupoids
 - split
 - text
 - time
@@ -78,8 +79,11 @@ default-extensions:
   - TypeFamilies
   - ViewPatterns
 
+ghc-options:
+  - -Wall
+
 executables:
-  aoc202-exe:
+  aoc2022-exe:
     main:                Main.hs
     source-dirs:         app
     ghc-options:

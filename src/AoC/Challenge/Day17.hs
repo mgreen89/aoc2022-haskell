@@ -1,3 +1,5 @@
+{-# OPTIONS_GHC -Wno-incomplete-uni-patterns #-}
+
 module AoC.Challenge.Day17 (
   day17a,
   day17b,
@@ -10,10 +12,11 @@ import Control.Monad (foldM)
 import Data.Foldable (maximumBy)
 import Data.Set (Set)
 import qualified Data.Set as S
-import Debug.Trace
 import GHC.Generics (Generic)
 import Linear (V2 (..))
 import Text.Read (readEither)
+
+import Debug.Trace
 
 type Point = V2 Int
 
@@ -110,5 +113,5 @@ day17b =
   Solution
     { sParse = traverse (readEither . (: []))
     , sShow = show
-    , sSolve = Right . solveB
+    , sSolve = Left . const "Not implemented" -- Right . solveB
     }

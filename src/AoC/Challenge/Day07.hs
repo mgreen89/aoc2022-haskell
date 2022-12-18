@@ -7,7 +7,6 @@ import AoC.Solution
 import AoC.Util (maybeToEither)
 import Control.Applicative (asum)
 import Data.Foldable (foldl')
-import Data.Function (on)
 import Data.List (sort, tails)
 import Data.Map (Map)
 import qualified Data.Map as M
@@ -21,7 +20,7 @@ getSizes = snd . foldl' go ([], M.empty)
     ["$", "cd", "/"] -> ([], m)
     ["$", "cd", ".."] -> (tail pwd, m)
     ["$", "cd", d] -> (d : pwd, m)
-    ["$", ls] -> (pwd, m)
+    ["$", _] -> (pwd, m)
     ["dir", _] -> (pwd, m)
     [n, _] | Just size <- readMaybe n -> handleFile size (pwd, m)
     _ -> error "Invalid line!"

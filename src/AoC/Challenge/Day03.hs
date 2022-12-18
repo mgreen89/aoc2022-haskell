@@ -6,7 +6,7 @@ module AoC.Challenge.Day03 (
 import AoC.Solution
 import Data.Char (isLower, ord)
 import qualified Data.IntSet as IS
-import Data.List (foldl1', splitAt)
+import Data.List (foldl1')
 import Data.List.Split (chunksOf)
 
 prio :: Char -> Int

@@ -59,8 +59,8 @@ scenicScore ss p =
  where
   (pos, views) = getViews ss p
   countSeen :: Int -> [Int] -> Int
-  countSeen p ts =
-    case findIndex (>= p) ts of
+  countSeen h ts =
+    case findIndex (>= h) ts of
       Just i -> i + 1
       Nothing -> length ts
 

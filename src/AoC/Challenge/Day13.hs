@@ -4,6 +4,7 @@ module AoC.Challenge.Day13 (
 )
 where
 
+import AoC.Common (listTup2)
 import AoC.Solution
 import AoC.Util (maybeToEither)
 import Control.DeepSeq (NFData)
@@ -49,10 +50,6 @@ packetParser =
           (MP.string "]")
           (packetParser `MP.sepBy` MP.string ",")
     ]
-
-listTup2 :: [a] -> Maybe (a, a)
-listTup2 [x, y] = Just (x, y)
-listTup2 _ = Nothing
 
 parsePairs :: String -> Either String [(Packet, Packet)]
 parsePairs =

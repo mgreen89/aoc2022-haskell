@@ -16,7 +16,6 @@ import qualified Data.Sequence as S
 import Data.Void (Void)
 import GHC.Generics (Generic)
 import qualified Text.Megaparsec as MP
-import qualified Text.Megaparsec.Byte as MPL
 import qualified Text.Megaparsec.Char as MP
 import qualified Text.Megaparsec.Char.Lexer as MPL
 

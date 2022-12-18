@@ -36,24 +36,24 @@ dir = \case
   L -> V2 0 (-1)
   D -> V2 1 0
 
+moveKnot :: Rope -> Point -> Rope
+moveKnot r p =
+  let link = head r - p
+   in if all ((<= 1) . abs) link
+        then p : r
+        else p + (min 1 . max (-1) <$> link) : r
+
+moveOnce :: Rope -> Dir -> (Point, Rope)
+moveOnce r d =
+  let r' = foldl' moveKnot [head r + dir d] (tail r)
+   in (head r', reverse r')
+
 moveRope :: (Rope, Set Point) -> Move -> (Rope, Set Point)
 moveRope (r, ts) m
   | m.l == 0 = (r, ts)
   | otherwise =
       let (t, r') = moveOnce r m.d
        in moveRope (r', S.insert t ts) m{l = m.l - 1}
- where
-  moveOnce :: Rope -> Dir -> (Point, Rope)
-  moveOnce r d =
-    let r' = foldl' moveKnot [head r + dir d] (tail r)
-     in (head r', reverse r')
-
-  moveKnot :: Rope -> Point -> Rope
-  moveKnot r' p =
-    let link = head r' - p
-     in if all ((<= 1) . abs) link
-          then p : r'
-          else p + (min 1 . max (-1) <$> link) : r'
 
 solve :: Int -> [Move] -> Int
 solve ropeSize =
