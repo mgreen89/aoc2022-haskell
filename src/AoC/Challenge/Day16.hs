@@ -7,7 +7,8 @@ where
 import AoC.Common.Graph (explore)
 import AoC.Solution
 import Data.Bifunctor (first)
-import Data.List (maximumBy)
+import Data.Foldable (foldl')
+import Data.List (maximumBy, partition)
 import Data.Map (Map)
 import qualified Data.Map as M
 import Data.Set (Set)
@@ -64,7 +65,8 @@ data Agent = Agent
   deriving (Show)
 
 data Ctx = Ctx
-  { opened :: Set String
+  { selected :: Set String
+  , opened :: Set String
   , pPerT :: Int
   , pTot :: Int
   , time :: Int
@@ -72,53 +74,78 @@ data Ctx = Ctx
   }
   deriving (Show)
 
+type Metrics = Map (Set String) Int
+
 -- Get a metric to determine how "good" a path is.
 -- This will be used to compare contexts with the same set of valves opened,
 -- so needs to differentiate between them.
 -- Use the maximum pressure relieved by the set of values as the metric.
-{-
-getMetric :: Int -> Ctx -> Int
-getMetric timeLimit ctx =
-  -- Max pressure possible relieved by the opened valves.
-  ctx.pTot + ctx.pPerT * (timeLimit - ctx.time)
--}
 
-solveB :: Int -> Int -> Map String (Int, [String]) -> Int
-solveB nAgents timeLimit inp =
+getMetric :: Map String Int -> Int -> Ctx -> Int
+getMetric rates timeLimit ctx =
+  -- Max pressure possible relieved by the opened valves _and_ any selected
+  -- valves once they're reached.
+  let
+    fromOpened = ctx.pTot + ctx.pPerT * (timeLimit - ctx.time)
+   in
+    fromOpened + foldl' go 0 ctx.agents
+ where
+  go :: Int -> Agent -> Int
+  go s a =
+    s + (rates M.! a.to) * (timeLimit - a.readyAt)
+
+solve :: Int -> Int -> Map String (Int, [String]) -> Int
+solve nAgents timeLimit inp =
   (\c -> c.pTot)
     . maximumBy (\a b -> compare a.pTot b.pTot)
+    . snd
     $ go
+      M.empty
       []
       Ctx
-        { opened = S.empty
-        , pPerT = 0
-        , pTot = 0
-        , time = 0
-        , agents = replicate nAgents Agent{prev = "AA", to = "AA", readyAt = 0}
-        }
+          { selected = S.empty
+          , opened = S.empty
+          , pPerT = 0
+          , pTot = 0
+          , time = 0
+          , agents = replicate nAgents Agent{prev = "AA", to = "AA", readyAt = 0}
+          }
  where
   ds :: Map String (Map String Int)
   ds = getDistances inp
 
-  go :: [Ctx] -> Ctx -> [Ctx]
-  go a c =
-    if c.time == timeLimit
-      then c : a
-      else foldl go a (next c)
+  rates :: Map String Int
+  rates = fmap fst inp
 
-  next :: Ctx -> [Ctx]
-  next ctx =
-    [ Ctx{..}
-    | let readyAgents = filter ((== ctx.time) . (.readyAt)) ctx.agents
-    , let enRouteAgents = filter ((/= ctx.time) . (.readyAt)) ctx.agents
+  go :: Metrics -> [Ctx] -> Ctx -> (Metrics, [Ctx])
+  go metrics a ctx =
+    if ctx.time == timeLimit
+      then (metrics, ctx : a)
+      else foldl' go' (metrics, []) (next metrics ctx)
+
+  go' :: (Metrics, [Ctx]) -> Ctx -> (Metrics, [Ctx])
+  go' (m, cs) c =
+    -- If we've got this far, the metric must be the same or better
+    -- so just insert it.
+    let m' = M.insert c.selected (getMetric rates timeLimit c) m
+        (m'', cs') = go m' cs c
+    in (m'', cs ++ cs')
+
+  next :: Metrics -> Ctx -> [Ctx]
+  next metrics ctx =
+    [ ctx'
+    | let (readyAgents, enRouteAgents) =
+            partition ((== ctx.time) . (.readyAt)) ctx.agents
     , as <- traverse (nextAgents ctx) readyAgents
     , -- Ensure all agents are going to different places!
     length as == S.size (S.fromList (fmap (.to) as))
-    , -- Count as opened as soon as selected so it's not selected again.
-    let opened = S.union ctx.opened . S.fromList . fmap (.to) $ as
+    , -- Update the selected valves.
+    let selected = S.union ctx.selected . S.fromList . fmap (.to) $ as
+    , -- Update the opened valves.
+    let opened = S.union ctx.opened . S.fromList . fmap (.prev) $ as
     , -- Only count for pressure per time when it's actually opened - i.e.
     -- when just selected a new valve to visit.
-    let pPerT = ctx.pPerT + (sum . fmap (fst . (inp M.!) . (.prev)) $ as)
+    let pPerT = ctx.pPerT + (sum . fmap ((rates M.!) . (.prev)) $ as)
     , let agents = as ++ enRouteAgents
     , -- Go until either reached time limit or an agent is ready.
     let nextReady = min timeLimit . minimum . fmap (.readyAt) $ agents
@@ -127,6 +154,12 @@ solveB nAgents timeLimit inp =
     let pTot = ctx.pTot + dt * pPerT
     , let time = ctx.time + dt
     , time <= timeLimit
+    , let ctx' = Ctx{..}
+    , -- Only let through if the metric is the best seen.
+    let metric = getMetric rates timeLimit ctx'
+    , case M.lookup selected metrics of
+            Just x -> metric >= x
+            Nothing -> True
     ]
 
   nextAgents :: Ctx -> Agent -> [Agent]
@@ -134,7 +167,7 @@ solveB nAgents timeLimit inp =
     [ Agent{..}
     | let prev = a.to
     , let dists = ds M.! prev
-    , let closed = filter (`S.notMember` ctx.opened) $ M.keys dists
+    , let closed = filter (`S.notMember` ctx.selected) $ M.keys dists
     , let inRange = filter ((< (timeLimit - ctx.time)) . (dists M.!)) closed
     , to <- if null inRange then [prev] else inRange
     , let readyAt = if to == prev then timeLimit else ctx.time + dists M.! to + 1
@@ -142,7 +175,7 @@ solveB nAgents timeLimit inp =
     ]
 
 day16a :: Solution (Map String (Int, [String])) Int
-day16a = Solution{sParse = parse, sShow = show, sSolve = Right . solveB 1 30}
+day16a = Solution{sParse = parse, sShow = show, sSolve = Right . solve 1 30}
 
 day16b :: Solution (Map String (Int, [String])) Int
-day16b = Solution{sParse = parse, sShow = show, sSolve = Right . solveB 2 26}
+day16b = Solution{sParse = parse, sShow = show, sSolve = Right . solve 2 26}
