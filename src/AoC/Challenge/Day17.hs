@@ -59,9 +59,6 @@ data Ctx = Ctx
   , room :: Set Point
   }
 
-instance Show Ctx where
-  show c = show (head c.gusts) ++ " " ++ show c.highest
-
 cleanupRoom :: Int -> Set Point -> Set Point
 cleanupRoom nLines room =
   let highest = maxY $ S.toList room
@@ -153,10 +150,7 @@ solveB n gusts =
     hFin = (.highest) $ states !! cFin
     cLen = cFin - cStart
     (nCycles, r) = (n - cStart) `divMod` cLen
-
-    cycleHeights = [s.highest - hStart | s <- take cLen . drop cStart $ states]
-
-    remainderHeight = (!! r) cycleHeights
+    remainderHeight = (states !! (cStart + r)).highest - hStart
    in
     remainderHeight + nCycles * (hFin - hStart) + hStart
 
