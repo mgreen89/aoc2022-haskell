@@ -103,13 +103,13 @@ solve nAgents timeLimit inp =
       M.empty
       []
       Ctx
-          { selected = S.empty
-          , opened = S.empty
-          , pPerT = 0
-          , pTot = 0
-          , time = 0
-          , agents = replicate nAgents Agent{prev = "AA", to = "AA", readyAt = 0}
-          }
+        { selected = S.empty
+        , opened = S.empty
+        , pPerT = 0
+        , pTot = 0
+        , time = 0
+        , agents = replicate nAgents Agent{prev = "AA", to = "AA", readyAt = 0}
+        }
  where
   ds :: Map String (Map String Int)
   ds = getDistances inp
@@ -129,7 +129,7 @@ solve nAgents timeLimit inp =
     -- so just insert it.
     let m' = M.insert c.selected (getMetric rates timeLimit c) m
         (m'', cs') = go m' cs c
-    in (m'', cs ++ cs')
+     in (m'', cs ++ cs')
 
   next :: Metrics -> Ctx -> [Ctx]
   next metrics ctx =
@@ -158,8 +158,8 @@ solve nAgents timeLimit inp =
     , -- Only let through if the metric is the best seen.
     let metric = getMetric rates timeLimit ctx'
     , case M.lookup selected metrics of
-            Just x -> metric >= x
-            Nothing -> True
+        Just x -> metric >= x
+        Nothing -> True
     ]
 
   nextAgents :: Ctx -> Agent -> [Agent]
