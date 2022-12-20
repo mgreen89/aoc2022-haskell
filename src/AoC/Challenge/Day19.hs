@@ -127,7 +127,7 @@ tri n = n * (n + 1) `div` 2
 
 bestGeodes :: Int -> Blueprint -> Int
 bestGeodes timeLimit blueprint =
-  fst . go (0, []) $ initialState
+  go 0 initialState
  where
   recipeMaximums :: Map Resource Int
   recipeMaximums =
@@ -168,16 +168,11 @@ bestGeodes timeLimit blueprint =
       , shouldBuild && mayBuild
       ]
 
-  go :: (Cache, [State]) -> State -> (Cache, [State])
-  go (cache, a) state
-    | state.time == timeLimit = (max cache (state.resources M.! Geode), state : a)
-    | maxPossScore state <= cache = (cache, [])
-    | otherwise = foldl' go' (cache, a) (getNext state)
-   where
-    go' :: (Cache, [State]) -> State -> (Cache, [State])
-    go' (c, ss) s =
-      let (c', ss') = go (c, ss) s
-       in (c', ss ++ ss')
+  go :: Cache -> State -> Cache
+  go cache state
+    | state.time == timeLimit = max cache (state.resources M.! Geode)
+    | maxPossScore state <= cache = cache
+    | otherwise = foldl' go cache (getNext state)
 
 day19a :: Solution [(Int, Blueprint)] Int
 day19a =
