@@ -154,11 +154,9 @@ bestGeodes timeLimit blueprint =
             -- Don't build if already more robots than max cost (otherwise
             -- just building up inventory forever and can't possibly spend).
             shouldBuild = fmap (\r -> state.resources M.! r < recipeMaximums M.! r) (take 3 allResources)
-
             builds =
-              ( mapMaybe (\(sb, mb, bs) -> if sb && mb then bs else Nothing) $
-                  zip3 shouldBuild mayBuild buildStates
-              )
+              mapMaybe (\(sb, mb, bs) -> if sb && mb then bs else Nothing) $
+                zip3 shouldBuild mayBuild buildStates
          in -- If can build a geode bot, ALWAYS build it,
             if canBuildRobot !! 3
               then go (cache, a) (fromJust $ startFactory blueprint nextState Geode)
@@ -182,5 +180,5 @@ day19b =
   Solution
     { sParse = parse
     , sShow = show
-    , sSolve = Left . const "not implemented"
+    , sSolve = Right . product . fmap (bestGeodes 32 . snd) . take 3
     }
