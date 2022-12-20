@@ -48,6 +48,7 @@ dependencies:
 - split
 - text
 - time
+- transformers
 - unordered-containers
 - vector
 - yaml
