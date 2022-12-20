@@ -149,7 +149,7 @@ runOne cfg ro d p sol = do
                       "Skipping benchmark - failure: " ++ showSolutionError e
                 Right _ ->
                   -- Success, run the benchmark.
-                  benchmark $ nf (s.sSolve <=< s.sParse) inp
+                  benchmark $ nf (s.sSolve <=< s.sParse) (stripNewlines inp)
               pure $ Left ["No results when benchmarking"]
       | ro.actual -> first ((: []) . show) <$> runSol sol inp
       | otherwise -> pure $ Left ["Skipping!"]
