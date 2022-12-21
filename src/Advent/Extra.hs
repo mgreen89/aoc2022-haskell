@@ -30,10 +30,12 @@ showAoCSubmitRes = \case
       r
   SubIncorrect t h ->
     let hintStr = maybe "" (printf "  Hint: Answer was %s") h
+        (m, s) = t `divMod` 60
      in printf
-          "Answer was incorrect!%s  Please wait %d before submitting again"
+          "Answer was incorrect!%s  Please wait %dmin %dsec before submitting again"
           hintStr
-          (t `div` 60)
+          m
+          s
   SubWait t ->
     let (m, s) = t `divMod` 60
      in printf "Answer re-submitted too soon.  Please wait %dmin %dsec" m s
