@@ -8,7 +8,7 @@ import AoC.Common.Graph (explore)
 import AoC.Solution
 import Data.Bifunctor (first)
 import Data.Foldable (foldl')
-import Data.List (maximumBy, partition)
+import Data.List (maximumBy, partition, sortBy)
 import Data.Map (Map)
 import qualified Data.Map as M
 import Data.Set (Set)
@@ -41,10 +41,10 @@ parse =
     . traverse (first MP.errorBundlePretty . MP.parse parser "day16")
     . lines
 
-getDistances :: Map String (Int, [String]) -> Map String (Map String Int)
+getDistances :: Map String (Int, [String]) -> Map String [(String, Int)]
 getDistances m =
   M.fromList
-    . fmap (\v -> (v, getAllPaths v workingValves))
+    . fmap (\v -> (v, sortBy (\(_, d1) (_, d2) -> compare d2 d1) . M.toList . getAllPaths v $ workingValves))
     $ ("AA" : workingValves)
  where
   getAllPaths :: String -> [String] -> Map String Int
@@ -58,7 +58,7 @@ getDistances m =
   workingValves = M.keys . M.filter ((/= 0) . fst) $ m
 
 data Agent = Agent
-  { prev :: String
+  { prev :: [String]
   , to :: String
   , readyAt :: Int
   }
@@ -94,24 +94,27 @@ getMetric rates timeLimit ctx =
   go s a =
     s + (rates M.! a.to) * (timeLimit - a.readyAt)
 
-solve :: Int -> Int -> Map String (Int, [String]) -> Int
-solve nAgents timeLimit inp =
+getMax :: (Metrics, [Ctx]) -> Int
+getMax =
   (\c -> c.pTot)
     . maximumBy (\a b -> compare a.pTot b.pTot)
     . snd
-    $ go
-      M.empty
-      []
-      Ctx
-        { selected = S.empty
-        , opened = S.empty
-        , pPerT = 0
-        , pTot = 0
-        , time = 0
-        , agents = replicate nAgents Agent{prev = "AA", to = "AA", readyAt = 0}
-        }
+
+solve :: Int -> Int -> Bool -> Map String (Int, [String]) -> (Metrics, [Ctx])
+solve nAgents timeLimit stop inp =
+  go
+    M.empty
+    []
+    Ctx
+      { selected = S.empty
+      , opened = S.empty
+      , pPerT = 0
+      , pTot = 0
+      , time = 0
+      , agents = replicate nAgents Agent{prev = [], to = "AA", readyAt = 0}
+      }
  where
-  ds :: Map String (Map String Int)
+  ds :: Map String [(String, Int)]
   ds = getDistances inp
 
   rates :: Map String Int
@@ -142,10 +145,10 @@ solve nAgents timeLimit inp =
     , -- Update the selected valves.
     let selected = S.union ctx.selected . S.fromList . fmap (.to) $ as
     , -- Update the opened valves.
-    let opened = S.union ctx.opened . S.fromList . fmap (.prev) $ as
+    let opened = S.union ctx.opened . S.fromList . fmap (head . (.prev)) $ as
     , -- Only count for pressure per time when it's actually opened - i.e.
     -- when just selected a new valve to visit.
-    let pPerT = ctx.pPerT + (sum . fmap ((rates M.!) . (.prev)) $ as)
+    let pPerT = ctx.pPerT + (sum . fmap ((rates M.!) . head . (.prev)) $ as)
     , let agents = as ++ enRouteAgents
     , -- Go until either reached time limit or an agent is ready.
     let nextReady = min timeLimit . minimum . fmap (.readyAt) $ agents
@@ -165,17 +168,32 @@ solve nAgents timeLimit inp =
   nextAgents :: Ctx -> Agent -> [Agent]
   nextAgents ctx a =
     [ Agent{..}
-    | let prev = a.to
-    , let dists = ds M.! prev
-    , let closed = filter (`S.notMember` ctx.selected) $ M.keys dists
-    , let inRange = filter ((< (timeLimit - ctx.time)) . (dists M.!)) closed
-    , to <- if null inRange then [prev] else inRange
-    , let readyAt = if to == prev then timeLimit else ctx.time + dists M.! to + 1
+    | let dists = ds M.! a.to
+    , let closed = filter (\(s, _) -> s `S.notMember` ctx.selected) dists
+    , let inRange = filter (\(_, d) -> d < (timeLimit - ctx.time)) closed
+    , let stay = (a.to, timeLimit)
+    , let nexts = fmap (fmap (+ (ctx.time + 1))) inRange
+    , (to, readyAt) <-
+        if null nexts
+          then [stay]
+          else if stop then stay : nexts else nexts
     , readyAt <= timeLimit
+    , let prev = a.to : a.prev
     ]
 
 day16a :: Solution (Map String (Int, [String])) Int
-day16a = Solution{sParse = parse, sShow = show, sSolve = Right . solve 1 30}
+day16a = Solution{sParse = parse, sShow = show, sSolve = Right . getMax . solve 1 30 False}
+
+solveB :: Int -> Map String (Int, [String]) -> Int
+solveB timeLimit inp =
+  let (_, sols) = solve 1 timeLimit True inp
+      bestSols = (M.toList $ M.fromListWith max [(S.delete "AA" s.opened, s.pTot) | s <- sols])
+   in maximum
+        [ xScore + yScore
+        | (xOpened, xScore) <- bestSols
+        , (yOpened, yScore) <- bestSols
+        , S.disjoint xOpened yOpened
+        ]
 
 day16b :: Solution (Map String (Int, [String])) Int
-day16b = Solution{sParse = parse, sShow = show, sSolve = Right . solve 2 26}
+day16b = Solution{sParse = parse, sShow = show, sSolve = Right . solveB 26}
