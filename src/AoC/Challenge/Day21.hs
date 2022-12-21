@@ -5,7 +5,6 @@ module AoC.Challenge.Day21 (
 where
 
 import AoC.Solution
-import Control.Applicative (liftA2)
 import Data.Bifunctor (first)
 import Data.Map (Map)
 import qualified Data.Map as M
@@ -43,9 +42,9 @@ parseB _ ["humn:", _] = ("humn", Left Tgt)
 parseB _ [m, v] = (init m, Right $ read v)
 parseB ms [m, a, o, b] =
   ( init m
-  , first
-      (const $ Op o (first (const a) $ ms M.! a) (first (const b) $ ms M.! b))
-      $ liftA2 (toOp o) (ms M.! a) (ms M.! b)
+  , case (ms M.! a, ms M.! b) of
+      (Right x, Right y) -> Right $ toOp o x y
+      (a', b') -> Left $ Op o (first (const a) a') (first (const b) b')
   )
 parseB _ x = error $ "Invalid parse: " ++ unwords x
 
@@ -63,7 +62,6 @@ solveB inp = go tgt next
       Left (Op "/" (Right v) (Left y)) -> go (v `div` t) y
       Left (Op "*" (Left x) (Right v)) -> go (t `div` v) x
       Left (Op "*" (Right v) (Left y)) -> go (t `div` v) y
-      Left (Op _ _ _) -> error "invalid node in backtracking"
       Left Tgt -> t
       _ -> error "invalid node in backtracking"
 
