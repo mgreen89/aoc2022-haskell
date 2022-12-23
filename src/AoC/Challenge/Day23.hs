@@ -1,24 +1,17 @@
-{-# LANGUAGE PartialTypeSignatures #-}
-{-# OPTIONS_GHC -Wno-partial-type-signatures #-}
-{-# OPTIONS_GHC -Wno-unused-imports #-}
-{-# OPTIONS_GHC -Wno-unused-top-binds #-}
-
 module AoC.Challenge.Day23 (
   day23a,
   day23b,
 )
 where
 
-import AoC.Common.Point (Dir (..), allNeighbs, boundingBox', dirPoint, dirRot)
+import AoC.Common.Point (Dir (..), allNeighbs, boundingBox', dirPoint)
 import AoC.Solution
-import Control.DeepSeq (NFData)
 import Data.Foldable (foldl')
 import Data.Map.Strict (Map)
 import qualified Data.Map.Strict as M
 import Data.Maybe (listToMaybe, mapMaybe)
 import Data.Set (Set)
 import qualified Data.Set as S
-import GHC.Generics (Generic)
 import Linear (V2 (..))
 
 type Point = V2 Int
@@ -65,6 +58,8 @@ doRound firstDir elves =
   shouldMove = M.filter (\v -> proposedTargets M.! v == 1) proposed
   update es f t = S.delete f . S.insert t $ es
 
+{-
+Helpful debug output for the test inputs.
 showSet :: Set Point -> String
 showSet s =
   [ if x == 11 then '\n' else if p `S.member` s then '#' else '.'
@@ -72,6 +67,7 @@ showSet s =
   , x <- [-3 .. 11]
   , let p = V2 x y
   ]
+-}
 
 getNextDir :: Dir -> Dir
 getNextDir U = D
@@ -98,5 +94,20 @@ day23a =
     , sSolve = Right . solveA
     }
 
-day23b :: Solution _ _
-day23b = Solution{sParse = Right, sShow = show, sSolve = Right}
+solveB :: Set Point -> Int
+solveB start =
+  go start 1 U
+ where
+  go es i d =
+    let es' = doRound d es
+     in if es == es'
+          then i
+          else go es' (i + 1) (getNextDir d)
+
+day23b :: Solution (Set Point) Int
+day23b =
+  Solution
+    { sParse = Right . parseMap
+    , sShow = show
+    , sSolve = Right . solveB
+    }
