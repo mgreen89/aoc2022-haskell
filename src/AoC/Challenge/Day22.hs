@@ -1,8 +1,3 @@
-{-# LANGUAGE PartialTypeSignatures #-}
-{-# OPTIONS_GHC -Wno-partial-type-signatures #-}
-{-# OPTIONS_GHC -Wno-unused-imports #-}
-{-# OPTIONS_GHC -Wno-unused-top-binds #-}
-
 module AoC.Challenge.Day22 (
   day22a,
   day22b,
@@ -21,7 +16,6 @@ import Data.Void (Void)
 import GHC.Generics (Generic)
 import Linear (V2 (..))
 import qualified Text.Megaparsec as MP
-import qualified Text.Megaparsec.Char as MP
 import qualified Text.Megaparsec.Char.Lexer as MPL
 
 type Point = V2 Int
@@ -44,7 +38,7 @@ parseMap =
   toTile '#' = Just Wall
   toTile t = error $ "Invalid tile: " ++ [t]
 
-data Dir = U | R | D | L deriving (Show, Generic, NFData)
+data Dir = U | R | D | L deriving (Show, Eq, Ord, Enum, Generic, NFData)
 
 parseDir :: Char -> Either String Dir
 parseDir 'U' = Right U
@@ -178,5 +172,128 @@ solveA (tiles, instrs) =
 day22a :: Solution (Map Point Tile, [Instr]) Int
 day22a = Solution{sParse = parse, sShow = show, sSolve = Right . solveA}
 
-day22b :: Solution _ _
-day22b = Solution{sParse = Right, sShow = show, sSolve = Right}
+-- Ugh.
+-- Special case my solution
+-- Faces like this:
+--   A B
+--   C
+-- D E
+-- F
+-- xrange, yrange, top, right, bottom, left faces (and new direction)
+faces :: [((Int, Int), (Int, Int), (Int, Dir), (Int, Dir), (Int, Dir), (Int, Dir))]
+faces = [
+  ((51, 100), (1, 50), (5, R), (1, R), (2, D), (4, R)),
+  ((101, 150), (1, 50), (5, U), (4, L), (2, L), (0, L)),
+  ((51, 100), (51, 100), (0, U), (1, U), (4, D), (3, D)),
+  ((1, 50), (101, 150), (2, R), (4, R), (5, D), (0, R)),
+  ((51, 100), (101, 150), (2, U), (1, L), (5, L), (3, L)),
+  ((1, 50), (151, 200), (3, U), (4, U), (1, D), (0, D))
+  ]
+
+-- Argh fine do the test then.
+-- Faces like this:
+--     A
+-- B C D
+--     E F
+testFaces :: [((Int, Int), (Int, Int), (Int, Dir), (Int, Dir), (Int, Dir), (Int, Dir))]
+testFaces = [
+  ((9, 12), (1, 4), (1, D), (5, L), (3, D), (2, D)),
+  ((1, 4), (5, 8), (0, D), (2, R), (4, U), (3, U)),
+  ((5, 8), (5, 8), (0, R), (3, R), (4, R), (1, L)),
+  ((9, 12), (5, 8), (0, U), (5, D), (4, D), (2, L)),
+  ((9, 12), (9, 12), (3, U), (5, R), (1, U), (2, U)),
+  ((13, 16), (9, 12), (3, L), (0, L), (1, R), (4, L))
+  ]
+
+rotRel :: Dir -> V2 Int -> V2 Int
+rotRel = \case
+  U -> \(V2 x y) -> V2 x (49-y)
+  R -> \(V2 x y) -> V2 y (x)
+  D -> \(V2 x y) -> V2 (49-x) (y)
+  L -> \(V2 x y) -> V2 (49-y) (49 - x)
+
+{-
+ U U x (-y)
+ U R y x
+ U D (-x) y
+ U L (-y) (-x)
+
+ R U y x
+ R R (-x) y
+ R D (-y) (-x)
+ R L x (-y)
+-}
+
+rotRelTest :: Dir -> V2 Int -> V2 Int
+rotRelTest = \case
+  U -> \(V2 x y) -> V2 x (3-y)
+  R -> \(V2 x y) -> V2 y (x)
+  D -> \(V2 x y) -> V2 (3-x) (y)
+  L -> \(V2 x y) -> V2 (3-y) (3 - x)
+
+overEdge :: (Point, Dir) -> (Point, Dir)
+overEdge (V2 x y, d) =
+  head $ mapMaybe go faces
+  where
+    go ((xLo, xHi), (yLo, yHi), t, r, b, l) =
+      if xLo <= x && xHi >= x && yLo <= y && yHi >= y
+        then
+          let
+            relX = x - xLo
+            relY = y - yLo
+            (nextFace, nextDir) = case d of
+              U -> t
+              R -> r
+              D -> b
+              L -> l
+            ((nxLo, _), (nyLo, _), _, _, _, _) = faces !! nextFace
+          in
+          Just (rotRel (dirRot d nextDir) (V2 relX relY) + V2 nxLo nyLo, nextDir)
+        else Nothing
+
+getNextCube :: Map Point Tile -> Point -> Dir -> Maybe (Point, Dir)
+getNextCube tiles pos dir =
+  let
+    simpleNext = pos + dirPoint dir
+   in
+    case tiles M.!? simpleNext of
+      Just Open -> Just (simpleNext, dir)
+      Just Wall -> Nothing
+      Nothing ->
+        -- Going over a cube edge.
+        let (nextOverEdge, nextDir) = overEdge (pos, dir)
+        in case tiles M.! nextOverEdge of
+          Open -> Just (nextOverEdge, nextDir)
+          Wall -> Nothing
+
+solveB :: (Map Point Tile, [Instr]) -> Int
+solveB (tiles, instrs) =
+  let
+    start = (fst $ getFirstInRow tiles 1, R)
+   in
+    getScore $ foldl' go start instrs
+ where
+  go :: (Point, Dir) -> Instr -> (Point, Dir)
+  go (p, d) = \case
+    Move n -> move n d p
+    Turn t -> (p, dirRot t d)
+
+  move :: Int -> Dir -> Point -> (Point, Dir)
+  move 0 d p = (p, d)
+  move n d p = case getNextCube tiles p d of
+    Just (nextP, nextD) -> move (n - 1) nextD nextP
+    Nothing -> (p, d)
+
+  getScore :: (Point, Dir) -> Int
+  getScore (V2 x y, d) =
+    1000 * y
+      + 4 * x
+      + ( case d of
+            U -> 3
+            R -> 0
+            D -> 1
+            L -> 2
+        )
+
+day22b :: Solution (Map Point Tile, [Instr]) Int
+day22b = Solution{sParse = parse, sShow = show, sSolve = Right . solveB}
