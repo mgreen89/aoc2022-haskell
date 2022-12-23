@@ -1,3 +1,5 @@
+{-# OPTIONS_GHC -Wno-unused-top-binds #-}
+
 module AoC.Common.Point (
   cardinalNeighbs,
   allNeighbs,
@@ -5,9 +7,13 @@ module AoC.Common.Point (
   boundingBox,
   boundingBox',
   parse2dMap,
+  Dir (..),
+  dirRot,
+  dirPoint,
 ) where
 
 import Control.Applicative
+import Control.DeepSeq (NFData)
 import Data.Foldable (toList)
 import qualified Data.List.NonEmpty as NE
 import Data.Map (Map)
@@ -15,6 +21,7 @@ import qualified Data.Map as M
 import Data.Monoid
 import Data.Semigroup
 import Data.Semigroup.Foldable
+import GHC.Generics (Generic)
 import Linear (Additive, V2 (..), basis, negated)
 import Text.Read (readEither)
 
@@ -66,3 +73,37 @@ parse2dMap = fmap createMap . traverse (traverse (readEither . pure)) . lines
       . zipWith
         (\y -> zipWith (\x -> (V2 x y,)) [0 ..])
         [0 ..]
+
+{- | Direction
+Up, Right, Left and Down.
+-}
+data Dir = U | R | D | L deriving (Show, Eq, Ord, Enum, Generic, NFData)
+
+-- | Rotate a direction.
+dirRot :: Dir -> Dir -> Dir
+dirRot U = id
+dirRot R = \case
+  U -> R
+  R -> D
+  D -> L
+  L -> U
+dirRot D = \case
+  U -> D
+  R -> L
+  D -> U
+  L -> R
+dirRot L = \case
+  U -> L
+  R -> U
+  D -> R
+  L -> D
+
+{- | Convert a direction to a unit vector in the 2D plane.
+N.B. that x increases to the right, y increases going down.
+-}
+dirPoint :: Dir -> V2 Int
+dirPoint = \case
+  U -> V2 0 (-1)
+  R -> V2 1 0
+  D -> V2 0 1
+  L -> V2 (-1) 0

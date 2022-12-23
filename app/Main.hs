@@ -1,4 +1,4 @@
-{-# OPTIONS_GHC -Werror=incomplete-patterns #-}
+{-# OPTIONS_GHC -Wno-ambiguous-fields #-}
 
 import Advent
 import AoC

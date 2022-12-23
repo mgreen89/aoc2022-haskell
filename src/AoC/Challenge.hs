@@ -120,8 +120,8 @@ solutionList =
   , (mkDay_ 21, (Part2, SomeSolution day21b))
   , (mkDay_ 22, (Part1, SomeSolution day22a))
   , (mkDay_ 22, (Part2, SomeSolution day22b))
-  -- , (mkDay_ 23, (Part1, SomeSolution day23a))
-  -- , (mkDay_ 23, (Part2, SomeSolution day23b))
+  , (mkDay_ 23, (Part1, SomeSolution day23a))
+  , (mkDay_ 23, (Part2, SomeSolution day23b))
   -- , (mkDay_ 25, (Part1, SomeSolution day25a))
   ]
 
