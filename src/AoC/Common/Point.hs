@@ -6,6 +6,7 @@ module AoC.Common.Point (
   manhattan,
   boundingBox,
   boundingBox',
+  inBoundingBox,
   parse2dMap,
   Dir (..),
   dirRot,
@@ -61,6 +62,12 @@ boundingBox =
 -- | `boundingBox` that safely works on generic (possible empty) foldables.
 boundingBox' :: (Foldable f, Applicative g, Ord a) => f (g a) -> Maybe (g a, g a)
 boundingBox' = fmap boundingBox . NE.nonEmpty . toList
+
+-- | Check if a point is in a bounding box.
+inBoundingBox :: (Applicative g, Foldable g, Ord a) => (g a, g a) -> g a -> Bool
+inBoundingBox (bMin, bMax) p = and $ go <$> p <*> bMin <*> bMax
+  where
+    go cp cmin cmax = cp >= cmin && cp <= cmax
 
 -- | Parse String data into a Map
 parse2dMap :: String -> Either String (Map (V2 Int) Int)

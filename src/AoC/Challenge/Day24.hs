@@ -6,20 +6,21 @@ module AoC.Challenge.Day24 (
 )
 where
 
-import AoC.Common.Point (Dir (..), boundingBox', cardinalNeighbs, dirPoint, manhattan)
+import AoC.Common.Point (inBoundingBox, boundingBox', cardinalNeighbs, manhattan)
 import AoC.Solution
+import Data.Array (Array)
+import qualified Data.Array as A
 import Data.Map (Map)
 import qualified Data.Map as M
 import Data.OrdPSQ (OrdPSQ)
 import qualified Data.OrdPSQ as PSQ
-import Data.Set (Set)
-import qualified Data.Set as S
 import Linear (V2 (..))
-import Safe (headMay)
 
 type Point = V2 Int
 
-type Input = (Point, Point, Point, Point, Set Point, Set Point, Set Point, Set Point)
+type Blizzards = Array Point Bool
+
+type Input = (Point, Point, Blizzards, Blizzards, Blizzards, Blizzards)
 
 parseInput :: String -> Input
 parseInput inp =
@@ -27,39 +28,23 @@ parseInput inp =
     initial =
       M.fromList
         . concat
-        . zipWith (\y -> zipWith (\x -> (V2 x y,)) [0 ..]) [0 ..]
+        . zipWith (\y -> zipWith (\x -> (V2 x y,)) [(-1) ..]) [(-1) ..]
         . lines
         $ inp
-    (lo@(V2 _ yLo), hi@(V2 _ yHi)) = case boundingBox' (M.keys initial) of
+    (V2 xLo yLo, V2 xHi yHi) = case boundingBox' (M.keys initial) of
       Just x -> x
       Nothing -> error "no points!"
+
+    -- Drop all the walls.
+    noWalls = M.toAscList $ M.filterWithKey (\(V2 x y) _ -> x > xLo && x < xHi && y > yLo && y < yHi) initial
    in
-    ( lo
-    , hi
-    , fst . head . M.toList . M.filterWithKey (\(V2 _ y) a -> y == yLo && a == '.') $ initial
+    ( fst . head . M.toList . M.filterWithKey (\(V2 _ y) a -> y == yLo && a == '.') $ initial
     , fst . head . M.toList . M.filterWithKey (\(V2 _ y) a -> y == yHi && a == '.') $ initial
-    , M.keysSet . M.filter (== '^') $ initial
-    , M.keysSet . M.filter (== '>') $ initial
-    , M.keysSet . M.filter (== 'v') $ initial
-    , M.keysSet . M.filter (== '<') $ initial
+    , A.array (V2 0 0, V2 (xHi - 1) (yHi - 1)) $ fmap (fmap (== '^')) noWalls
+    , A.array (V2 0 0, V2 (xHi - 1) (yHi - 1)) $ fmap (fmap (== '>')) noWalls
+    , A.array (V2 0 0, V2 (xHi - 1) (yHi - 1)) $ fmap (fmap (== 'v')) noWalls
+    , A.array (V2 0 0, V2 (xHi - 1) (yHi - 1)) $ fmap (fmap (== '<')) noWalls
     )
-
-inBox :: (Point, Point, Point, Point) -> Point -> Bool
-inBox (V2 xLo yLo, V2 xHi yHi, s, f) p@(V2 x y) =
-  p == s || p == f || x > xLo && x < xHi && y > yLo && y < yHi
-
-tick :: (Point, Point) -> (Set Point, Set Point, Set Point, Set Point) -> (Set Point, Set Point, Set Point, Set Point)
-tick (V2 xLo yLo, V2 xHi yHi) (u, r, d, l) =
-  (S.map (go U) u, S.map (go R) r, S.map (go D) d, S.map (go L) l)
- where
-  go dir p =
-    let p'@(V2 x' y') = dirPoint dir + p
-        next = case dir of
-          U -> if y' <= yLo then V2 x' (yHi - 1) else p'
-          R -> if x' >= xHi then V2 (xLo + 1) y' else p'
-          D -> if y' >= yHi then V2 x' (yLo + 1) else p'
-          L -> if x' <= xLo then V2 (xHi - 1) y' else p'
-     in next
 
 insertIfBetter :: (Ord k, Ord p) => k -> p -> v -> OrdPSQ k p v -> OrdPSQ k p v
 insertIfBetter k p x q = case PSQ.lookup k q of
@@ -68,100 +53,114 @@ insertIfBetter k p x q = case PSQ.lookup k q of
     | p < p' -> PSQ.insert k p x q
     | otherwise -> q
 
--- | A* algorithm including a time heuristic.
 aStar ::
-  forall a n t.
-  (Ord a, Num a, Ord n, Integral t) =>
-  -- | Start time
-  t ->
+  forall a n.
+  (Ord a, Num a, Ord n, Show n) =>
   -- | Heuristic
-  (t -> n -> a) ->
+  (n -> a) ->
   -- | Neighbours and costs
-  (t -> n -> Map n a) ->
+  (n -> Map n a) ->
   -- | Start
   n ->
   -- | Destination
-  n ->
+  (n -> Bool) ->
   -- | Total cost if successful
   Maybe a
-aStar startTime heuristic getNs start dest = go M.empty (PSQ.singleton (start, startTime) 0 0)
+aStar heuristic getNs start isDest =
+  (\(n, _, _) -> n) <$> go (M.empty, PSQ.singleton start 0 0)
  where
-  go :: Map (n, t) a -> OrdPSQ (n, t) a a -> Maybe a
-  go visited unvisited = case headMay . M.toList . M.filterWithKey (\(p, _) _ -> p == dest) $ visited of
-    Just (_, x) -> Just x
-    Nothing -> uncurry go =<< step (visited, unvisited)
-
-  step :: (Map (n, t) a, OrdPSQ (n, t) a a) -> Maybe (Map (n, t) a, OrdPSQ (n, t) a a)
-  step (v, uv) = do
-    ((currP, currT), _, currV, uv') <- PSQ.minView uv
-    let v' = M.insert (currP, currT) currV v
-    if currP == dest
-      then -- Short circuit if the destination has the lowest cost.
-        pure (v', uv')
-      else pure (v', M.foldlWithKey' (handleNeighbour currV (currT + 1)) uv' (getNs (currT + 1) currP))
+  go :: (Map n a, OrdPSQ n a a) -> Maybe (a, Map n a, OrdPSQ n a a)
+  go (v, uv) = do
+    (currP, _, currV, uv') <- PSQ.minView uv
+    let v' = M.insert currP currV v
+    if isDest currP
+      then pure (currV, v', uv')
+      else go (v', M.foldlWithKey' (handleNeighbour currV) uv' (getNs currP))
    where
-    handleNeighbour :: a -> t -> OrdPSQ (n, t) a a -> n -> a -> OrdPSQ (n, t) a a
-    handleNeighbour currCost t q n nCost
-      | M.member (n, t) v = q
+    handleNeighbour :: a -> OrdPSQ n a a -> n -> a -> OrdPSQ n a a
+    handleNeighbour currCost q n nCost
+      | M.member n v = q
       | otherwise =
           insertIfBetter
-            (n, t)
-            (currCost + nCost + heuristic t n)
+            n
+            (currCost + nCost + heuristic n)
             (currCost + nCost)
             q
 
+isBlizzard :: (Blizzards, Blizzards, Blizzards, Blizzards) -> Int -> Point -> Bool
+isBlizzard (u, r, d, l) turn (V2 x y) =
+  inU || inR || inD || inL
+ where
+  (_, V2 xHi yHi) = A.bounds u
+  inU = u A.! V2 x ((y + turn) `mod` (yHi + 1))
+  inR = r A.! V2 ((x - turn) `mod` (xHi + 1)) y
+  inD = d A.! V2 x ((y - turn) `mod` (yHi + 1))
+  inL = l A.! V2 ((x + turn) `mod` (xHi + 1)) y
+
 solveA :: Input -> Int
-solveA (lo, hi, start, dest, u, r, d, l) =
-  case aStar 0 heuristic neighbs start dest of
+solveA (start, dest, u, r, d, l) =
+  case aStar heuristic neighbs (start, 0) ((== dest) . fst) of
     Just x -> x
     Nothing -> error "no path!"
  where
-  getBlizzards n = fmap blizz [0 ..] !! n
-   where
-    blizz :: Int -> (Set Point, Set Point, Set Point, Set Point)
-    blizz 0 = (u, r, d, l)
-    blizz x = tick (lo, hi) (blizz $ x - 1)
-  neighbs t n =
-    let bs = (\(w, x, y, z) -> S.unions [w, x, y, z]) $ getBlizzards t
-     in M.fromList
-          . flip zip (repeat 1)
-          . filter (\p -> p `S.notMember` bs && inBox (lo, hi, start, dest) p)
-          . filter (inBox (lo, hi, start, dest))
-          $ n : cardinalNeighbs n
-  heuristic t n =
+  (lo, hi) = A.bounds u
+
+  neighbs :: (Point, Int) -> Map (Point, Int) Int
+  neighbs (n, t) =
+    M.fromList
+      . flip zip (repeat 1)
+      . flip zip (repeat (t + 1))
+      . filter (isValid (t + 1))
+      $ n : cardinalNeighbs n
+
+  isValid :: Int -> Point -> Bool
+  isValid t p
+    | p == start = True
+    | p == dest = True
+    | otherwise =
+      inBoundingBox (lo, hi) p && not (isBlizzard (u, r, d, l) t p)
+
+  heuristic :: (Point, Int) -> Int
+  heuristic (n, t) =
     t + manhattan n dest
 
 day24a :: Solution Input Int
 day24a = Solution{sParse = Right . parseInput, sShow = show, sSolve = Right . solveA}
 
 solveB :: Input -> Int
-solveB (lo, hi, start, dest, u, r, d, l) =
+solveB (start, dest, u, r, d, l) =
   timeThere + timeBack + timeThereAgain
  where
-  getBlizzards n = fmap blizz [0 ..] !! n
-   where
-    blizz :: Int -> (Set Point, Set Point, Set Point, Set Point)
-    blizz 0 = (u, r, d, l)
-    blizz x = tick (lo, hi) (blizz $ x - 1)
-  neighbs t n =
-    let bs = (\(w, x, y, z) -> S.unions [w, x, y, z]) $ getBlizzards t
-     in M.fromList
-          . flip zip (repeat 1)
-          . filter (\p -> p `S.notMember` bs && inBox (lo, hi, start, dest) p)
-          . filter (inBox (lo, hi, start, dest))
-          $ n : cardinalNeighbs n
-  heuristic t n =
+  (lo, hi) = A.bounds u
+  neighbs (n, t) =
+    M.fromList
+      . flip zip (repeat 1)
+      . flip zip (repeat (t + 1))
+      . filter (isValid (t + 1))
+      $ n : cardinalNeighbs n
+
+  heuristic (n, t) =
     t + manhattan n dest
 
-  timeThere = case aStar 0 heuristic neighbs start dest of
+  isValid :: Int -> Point -> Bool
+  isValid t p
+    | p == start = True
+    | p == dest = True
+    | otherwise =
+      inBoundingBox (lo, hi) p && not (isBlizzard (u, r, d, l) t p)
+
+  isStart = (== start) . fst
+  isDest = (== dest) . fst
+
+  timeThere = case aStar heuristic neighbs (start, 0) isDest of
     Just x -> x
     Nothing -> error "no path there"
 
-  timeBack = case aStar timeThere heuristic neighbs dest start of
+  timeBack = case aStar heuristic neighbs (dest, timeThere) isStart of
     Just x -> x
     Nothing -> error "no path back"
 
-  timeThereAgain = case aStar (timeThere + timeBack) heuristic neighbs start dest of
+  timeThereAgain = case aStar heuristic neighbs (start, timeThere + timeBack) isDest of
     Just x -> x
     Nothing -> error "no path there again"
 
