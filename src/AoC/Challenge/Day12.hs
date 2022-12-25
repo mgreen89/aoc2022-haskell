@@ -51,7 +51,7 @@ getNeighbs m p =
 
 solveA :: (Point, Point, Map Point Int) -> Maybe Int
 solveA (start, finish, m) =
-  dijkstra (getNeighbs m) start finish
+  dijkstra (getNeighbs m) start (== finish)
 
 day12a :: Solution (Point, Point, Map Point Int) Int
 day12a =

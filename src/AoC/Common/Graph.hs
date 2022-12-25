@@ -32,24 +32,19 @@ aStar ::
   -- | Start
   n ->
   -- | Destination
-  n ->
+  (n -> Bool) ->
   -- | Total cost if successful
   Maybe a
-aStar heuristic getNs start dest = go M.empty (PSQ.singleton start 0 0)
+aStar heuristic getNs start isDest =
+    (\(n, _, _) -> n) <$> go (M.empty, PSQ.singleton start 0 0)
  where
-  go :: Map n a -> OrdPSQ n a a -> Maybe a
-  go visited unvisited = case M.lookup dest visited of
-    Just x -> Just x
-    Nothing -> uncurry go =<< step (visited, unvisited)
-
-  step :: (Map n a, OrdPSQ n a a) -> Maybe (Map n a, OrdPSQ n a a)
-  step (v, uv) = do
+  go :: (Map n a, OrdPSQ n a a) -> Maybe (a, Map n a, OrdPSQ n a a)
+  go (v, uv) = do
     (currP, _, currV, uv') <- PSQ.minView uv
     let v' = M.insert currP currV v
-    if currP == dest
-      then -- Short circuit if the destination has the lowest cost.
-        pure (v', uv')
-      else pure (v', M.foldlWithKey' (handleNeighbour currV) uv' (getNs currP))
+    if isDest currP
+      then pure (currV, v', uv')
+      else go (v', M.foldlWithKey' (handleNeighbour currV) uv' (getNs currP))
    where
     handleNeighbour :: a -> OrdPSQ n a a -> n -> a -> OrdPSQ n a a
     handleNeighbour currCost q n nCost
@@ -69,7 +64,7 @@ dijkstra ::
   -- | Start
   n ->
   -- | Destination
-  n ->
+  (n -> Bool) ->
   -- | Total cost if successful
   Maybe a
 dijkstra = aStar (const 0)

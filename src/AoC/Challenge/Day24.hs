@@ -1,5 +1,3 @@
-{-# LANGUAGE ScopedTypeVariables #-}
-
 module AoC.Challenge.Day24 (
   day24a,
   day24b,
@@ -7,13 +5,12 @@ module AoC.Challenge.Day24 (
 where
 
 import AoC.Common.Point (inBoundingBox, boundingBox', cardinalNeighbs, manhattan)
+import AoC.Common.Graph (aStar)
 import AoC.Solution
 import Data.Array (Array)
 import qualified Data.Array as A
 import Data.Map (Map)
 import qualified Data.Map as M
-import Data.OrdPSQ (OrdPSQ)
-import qualified Data.OrdPSQ as PSQ
 import Linear (V2 (..))
 
 type Point = V2 Int
@@ -45,47 +42,6 @@ parseInput inp =
     , A.array (V2 0 0, V2 (xHi - 1) (yHi - 1)) $ fmap (fmap (== 'v')) noWalls
     , A.array (V2 0 0, V2 (xHi - 1) (yHi - 1)) $ fmap (fmap (== '<')) noWalls
     )
-
-insertIfBetter :: (Ord k, Ord p) => k -> p -> v -> OrdPSQ k p v -> OrdPSQ k p v
-insertIfBetter k p x q = case PSQ.lookup k q of
-  Nothing -> PSQ.insert k p x q
-  Just (p', _)
-    | p < p' -> PSQ.insert k p x q
-    | otherwise -> q
-
-aStar ::
-  forall a n.
-  (Ord a, Num a, Ord n, Show n) =>
-  -- | Heuristic
-  (n -> a) ->
-  -- | Neighbours and costs
-  (n -> Map n a) ->
-  -- | Start
-  n ->
-  -- | Destination
-  (n -> Bool) ->
-  -- | Total cost if successful
-  Maybe a
-aStar heuristic getNs start isDest =
-  (\(n, _, _) -> n) <$> go (M.empty, PSQ.singleton start 0 0)
- where
-  go :: (Map n a, OrdPSQ n a a) -> Maybe (a, Map n a, OrdPSQ n a a)
-  go (v, uv) = do
-    (currP, _, currV, uv') <- PSQ.minView uv
-    let v' = M.insert currP currV v
-    if isDest currP
-      then pure (currV, v', uv')
-      else go (v', M.foldlWithKey' (handleNeighbour currV) uv' (getNs currP))
-   where
-    handleNeighbour :: a -> OrdPSQ n a a -> n -> a -> OrdPSQ n a a
-    handleNeighbour currCost q n nCost
-      | M.member n v = q
-      | otherwise =
-          insertIfBetter
-            n
-            (currCost + nCost + heuristic n)
-            (currCost + nCost)
-            q
 
 isBlizzard :: (Blizzards, Blizzards, Blizzards, Blizzards) -> Int -> Point -> Bool
 isBlizzard (u, r, d, l) turn (V2 x y) =
