@@ -4,11 +4,14 @@ module AoC.Challenge.Day15 (
 )
 where
 
+import AoC.Common.Point (manhattan)
 import AoC.Solution
 import Data.Bifunctor (first)
+import Data.Foldable (foldl')
+import Data.List (sort)
 import Data.Map (Map)
 import qualified Data.Map as M
-import Data.Set (Set)
+import Data.Maybe (mapMaybe)
 import qualified Data.Set as S
 import Data.Void (Void)
 import Linear (V2 (..))
@@ -34,39 +37,53 @@ sensorParser = do
 parseSensors :: String -> Either String (Map Point Point)
 parseSensors =
   fmap M.fromList
-    . traverse (first MP.errorBundlePretty . MP.parse sensorParser "day15")
-    . lines
+    . first MP.errorBundlePretty
+    . MP.parse (MP.sepBy sensorParser MP.space) "day15"
 
-manhattan :: Point -> Point -> Int
-manhattan a b =
-  sum . fmap abs $ (b - a)
-
-solveA :: Map Point Point -> Int
-solveA =
-  S.size . M.foldrWithKey go S.empty
+solveA :: Int -> Map Point Point -> Int
+solveA y m =
+  foldl' (\a (mi, ma) -> ma - mi + a) 0 ranges - numBeacons
  where
-  go :: Point -> Point -> Set Point -> Set Point
-  go s b a =
-    S.union a . S.fromList . getPoints 2000000 s $ b
+  ranges :: [(Int, Int)]
+  ranges = mergeRanges . mapMaybe getRange . M.toAscList $ m
 
-  getPoints :: Int -> Point -> Point -> [Point]
-  getPoints y s@(V2 sx sy) b =
+  numBeacons :: Int
+  numBeacons = S.size . S.fromList . M.elems $ m
+
+  getRange :: (Point, Point) -> Maybe (Int, Int)
+  getRange (s@(V2 sx sy), b) =
     let
-      d = manhattan s b
-      toL = abs (y - sy)
+      sensorRange = manhattan s b
+      dy = abs (y - sy)
+      dx = sensorRange - dy
      in
-      if abs toL >= d
-        then []
-        else
-          let xDiff = d - toL
-           in [V2 x y | x <- [sx - xDiff .. sx + xDiff], V2 x y /= b]
+      if dy < sensorRange
+        then Just (sx - dx, sx + dx)
+        else Nothing
+
+  mergeRanges :: [(Int, Int)] -> [(Int, Int)]
+  mergeRanges =
+    foldl go [] . sort
+   where
+    go :: [(Int, Int)] -> (Int, Int) -> [(Int, Int)]
+    go c (rMin, rMax) =
+      case c of
+        [] -> [(rMin, rMax)]
+        (prevMin, prevMax) : rest ->
+          if rMin <= prevMax
+            then (prevMin, max prevMax rMax) : rest
+            else (rMin, rMax) : rest
+
+isTest :: Map Point Point -> Bool
+isTest =
+  all (\(s, b) -> max (maximum s) (maximum b) < 100) . M.toList
 
 day15a :: Solution (Map Point Point) Int
 day15a =
   Solution
     { sParse = parseSensors
     , sShow = show
-    , sSolve = Right . solveA
+    , sSolve = \i -> Right . solveA (if isTest i then 10 else 2000000) $ i
     }
 
 tuningFreq :: Point -> Int
