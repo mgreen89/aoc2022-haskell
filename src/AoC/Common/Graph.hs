@@ -36,7 +36,7 @@ aStar ::
   -- | Total cost if successful
   Maybe a
 aStar heuristic getNs start isDest =
-    (\(n, _, _) -> n) <$> go (M.empty, PSQ.singleton start 0 0)
+  (\(n, _, _) -> n) <$> go (M.empty, PSQ.singleton start 0 0)
  where
   go :: (Map n a, OrdPSQ n a a) -> Maybe (a, Map n a, OrdPSQ n a a)
   go (v, uv) = do

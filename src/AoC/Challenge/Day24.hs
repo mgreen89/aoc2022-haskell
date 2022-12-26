@@ -4,8 +4,8 @@ module AoC.Challenge.Day24 (
 )
 where
 
-import AoC.Common.Point (inBoundingBox, boundingBox', cardinalNeighbs, manhattan)
 import AoC.Common.Graph (aStar)
+import AoC.Common.Point (boundingBox', cardinalNeighbs, inBoundingBox, manhattan)
 import AoC.Solution
 import Data.Array (Array)
 import qualified Data.Array as A
@@ -74,7 +74,7 @@ solveA (start, dest, u, r, d, l) =
     | p == start = True
     | p == dest = True
     | otherwise =
-      inBoundingBox (lo, hi) p && not (isBlizzard (u, r, d, l) t p)
+        inBoundingBox (lo, hi) p && not (isBlizzard (u, r, d, l) t p)
 
   heuristic :: (Point, Int) -> Int
   heuristic (n, t) =
@@ -103,7 +103,7 @@ solveB (start, dest, u, r, d, l) =
     | p == start = True
     | p == dest = True
     | otherwise =
-      inBoundingBox (lo, hi) p && not (isBlizzard (u, r, d, l) t p)
+        inBoundingBox (lo, hi) p && not (isBlizzard (u, r, d, l) t p)
 
   isStart = (== start) . fst
   isDest = (== dest) . fst

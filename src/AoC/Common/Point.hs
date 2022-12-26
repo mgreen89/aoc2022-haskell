@@ -66,8 +66,8 @@ boundingBox' = fmap boundingBox . NE.nonEmpty . toList
 -- | Check if a point is in a bounding box.
 inBoundingBox :: (Applicative g, Foldable g, Ord a) => (g a, g a) -> g a -> Bool
 inBoundingBox (bMin, bMax) p = and $ go <$> p <*> bMin <*> bMax
-  where
-    go cp cmin cmax = cp >= cmin && cp <= cmax
+ where
+  go cp cmin cmax = cp >= cmin && cp <= cmax
 
 -- | Parse String data into a Map
 parse2dMap :: String -> Either String (Map (V2 Int) Int)
