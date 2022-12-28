@@ -6,8 +6,11 @@ where
 
 import AoC.Common.Point (manhattan)
 import AoC.Solution
+import AoC.Util (maybeToEither)
 import Data.Bifunctor (first)
 import Data.Foldable (foldl')
+import Data.IntSet (IntSet)
+import qualified Data.IntSet as IS
 import Data.List (sort)
 import Data.Map (Map)
 import qualified Data.Map as M
@@ -15,6 +18,7 @@ import Data.Maybe (mapMaybe)
 import qualified Data.Set as S
 import Data.Void (Void)
 import Linear (V2 (..))
+import Safe (headMay)
 import qualified Text.Megaparsec as MP
 import qualified Text.Megaparsec.Char as MP
 import qualified Text.Megaparsec.Char.Lexer as MPL
@@ -89,27 +93,57 @@ day15a =
 tuningFreq :: Point -> Int
 tuningFreq (V2 x y) = x * 4000000 + y
 
-solveB :: Int -> Map Point Point -> Int
-solveB maxCoord bs =
-  tuningFreq
-    . head
+{-
+The single point is either going to be on the boundary of the square
+from (0, 0) - (maxCoord, maxCoord), which this solution ignores, or
+_just_ outside the boundary of _two_ scanners.
+
+The boundary of a scanner at (sx, sy) is made up of four lines -
+two with gradient 1 and two with gradient -1, as follows:
+  1.  y = x + (sy - sx + r + 1)
+  2.  y = x + (sy - sx - r - 1)
+  3.  y = (-x) + (sy + sx + r + 1)
+  4.  y = (-x) + (sy + sx - r - 1)
+
+Two lines y = x + a and y = -x - b intersect at ((b - a) / 2, (b + a) / 2).
+One of these intersection points will be the scanner location.
+
+We can also discard the following pairs:
+  - Where (b - a) is an odd number - these don't share an integer-point
+    intersection.
+  - Where a >= b - these won't intersect in the region of interest.
+-}
+solveB :: Int -> Map Point Point -> Either String Int
+solveB maxCoord sensors =
+  fmap tuningFreq
+    . maybeToEither "No point found"
+    . headMay
     $ [ cand
-      | (b@(V2 bx by), s) <- M.toList bs
-      , let d = manhattan b s + 1
-      , dx <- [(-d) .. d]
-      , let x = bx + dx
-      , x >= 0 && x <= maxCoord
-      , dy <- [-(d - dx), d - dx]
-      , let y = by + dy
-      , y >= 0 && y <= maxCoord
-      , let cand = V2 x y
-      , all (\(b', s') -> manhattan b' cand > manhattan b' s') $ M.toList bs
+      | a <- IS.toList aCoeffs
+      , b <- IS.toList bCoeffs
+      , even (b - a)
+      , a < b
+      , let cand = V2 ((b - a) `div` 2) ((b + a) `div` 2)
+      , all (> 0) cand
+      , all (< maxCoord) cand
+      , all
+          (\(sens, beac) -> manhattan cand sens > manhattan sens beac)
+          (M.toAscList sensors)
       ]
+ where
+  (aCoeffs, bCoeffs) = M.foldrWithKey go (IS.empty, IS.empty) sensors
+
+  go :: Point -> Point -> (IntSet, IntSet) -> (IntSet, IntSet)
+  go s@(V2 x y) b (as, bs) =
+    let r = manhattan s b
+     in ( IS.insert (y - x + r + 1) . IS.insert (y - x - r - 1) $ as
+        , IS.insert (y + x + r + 1) . IS.insert (y + x - r - 1) $ bs
+        )
 
 day15b :: Solution (Map Point Point) Int
 day15b =
   Solution
     { sParse = parseSensors
     , sShow = show
-    , sSolve = Right . solveB 4000000
+    , sSolve = \i -> solveB (if isTest i then 20 else 4000000) i
     }
