@@ -4,15 +4,15 @@ module AoC.Challenge.Day19 (
 )
 where
 
+import AoC.Common.Point (boundingBox)
 import AoC.Solution
 import Control.DeepSeq (NFData)
 import Data.Bifunctor (first)
 import Data.Foldable (foldl')
-import Data.Map (Map)
-import qualified Data.Map as M
 import Data.Maybe (catMaybes, isJust)
 import Data.Void (Void)
 import GHC.Generics (Generic)
+import Linear (V4 (..))
 import qualified Text.Megaparsec as MP
 import qualified Text.Megaparsec.Char as MP
 import qualified Text.Megaparsec.Char.Lexer as MPL
@@ -23,10 +23,25 @@ data Resource = Ore | Clay | Obsidian | Geode
 allResources :: [Resource]
 allResources = [Ore, Clay, Obsidian, Geode]
 
-type Recipe = Map Resource Int
-type Blueprint = Map Resource Recipe
-type Resources = Map Resource Int
-type Robots = Map Resource Int
+toVec :: Resource -> V4 Int
+toVec = \case
+  Ore -> V4 1 0 0 0
+  Clay -> V4 0 1 0 0
+  Obsidian -> V4 0 0 1 0
+  Geode -> V4 0 0 0 1
+
+(!) :: V4 a -> Resource -> a
+(!) (V4 a b c d) r =
+  case r of
+    Ore -> a
+    Clay -> b
+    Obsidian -> c
+    Geode -> d
+
+type Recipe = V4 Int
+type Blueprint = V4 Recipe
+type Resources = V4 Int
+type Robots = V4 Int
 
 blueprintParser :: MP.Parsec Void String (Int, Blueprint)
 blueprintParser = do
@@ -40,15 +55,19 @@ blueprintParser = do
   obsidian <- recipe <* MP.string "." <* MP.space
   MP.string "Each geode robot costs "
   geode <- recipe <* MP.string "."
-  pure (i, M.fromList [(Ore, ore), (Clay, clay), (Obsidian, obsidian), (Geode, geode)])
+  pure (i, V4 ore clay obsidian geode)
  where
   recipe :: MP.Parsec Void String Recipe
   recipe = do
     ingredients <- flip MP.sepBy (MP.string " and ") $ do
       c <- MPL.decimal <* MP.space
       r <- resource
-      pure (r, c)
-    pure $ M.fromList ingredients
+      case r of
+        Ore -> pure $ V4 c 0 0 0
+        Clay -> pure $ V4 0 c 0 0
+        Obsidian -> pure $ V4 0 0 c 0
+        Geode -> fail "Geode must not be a recipe ingredient"
+    pure $ sum ingredients
   resource :: MP.Parsec Void String Resource
   resource =
     MP.choice
@@ -60,7 +79,8 @@ blueprintParser = do
 
 parse :: String -> Either String [(Int, Blueprint)]
 parse =
-  first MP.errorBundlePretty . MP.parse (MP.sepBy blueprintParser MP.space) "day19"
+  first MP.errorBundlePretty
+    . MP.parse (MP.sepBy blueprintParser MP.space) "day19"
 
 data State = State
   { time :: Int
@@ -75,16 +95,16 @@ initialState :: State
 initialState =
   State
     { time = 0
-    , resources = M.fromList $ zip allResources (repeat 0)
-    , robots = M.unions [M.singleton Ore 1, M.fromList $ zip allResources (repeat 0)]
+    , resources = V4 0 0 0 0
+    , robots = V4 1 0 0 0
     , factory = Nothing
     , skippedBuild = fmap (const False) allResources
     }
 
 updateResources :: Resources -> Recipe -> Maybe Resources
 updateResources resources recipe =
-  let newResources = M.unionWith (-) resources recipe
-   in if all (>= 0) (M.elems newResources)
+  let newResources = resources - recipe
+   in if all (>= 0) newResources
         then Just newResources
         else Nothing
 
@@ -101,7 +121,7 @@ startFactory blueprint state robot =
   )
     <$> updateResources state.resources recipe
  where
-  recipe = blueprint M.! robot
+  recipe = blueprint ! robot
 
 -- Timer tick the state:
 --  - Gather resources with all existing robots.
@@ -115,9 +135,9 @@ tick state =
     , factory = Nothing
     }
  where
-  newResources = M.unionWith (+) state.robots state.resources
+  newResources = state.robots + state.resources
   newRobots = case state.factory of
-    Just r -> M.adjust (+ 1) r state.robots
+    Just r -> toVec r + state.robots
     Nothing -> state.robots
 
 type Cache = Int
@@ -129,15 +149,14 @@ bestGeodes :: Int -> Blueprint -> Int
 bestGeodes timeLimit blueprint =
   go 0 initialState
  where
-  recipeMaximums :: Map Resource Int
-  recipeMaximums =
-    M.unionsWith max . fmap snd . M.toList $ blueprint
+  recipeMaximums :: V4 Int
+  recipeMaximums = snd $ boundingBox blueprint
 
   maxPossScore :: State -> Int
   maxPossScore state =
-    state.resources M.! Geode
-      + timeLeft * M.findWithDefault 0 Geode state.robots
-      + tri timeLeft
+    state.resources ! Geode
+      + timeLeft * (state.robots ! Geode)
+      + tri (timeLeft - 1)
    where
     timeLeft = timeLimit - state.time
 
@@ -157,7 +176,7 @@ bestGeodes timeLimit blueprint =
       -- already the maximum cost of that resource for any robot, otherwise
       -- that resource can't possibly be spent.
       -- Geode robots should always be built if possible!
-      let allShouldBuild = fmap (\r -> state.resources M.! r < recipeMaximums M.! r) (take 3 allResources) ++ [True]
+      let allShouldBuild = fmap (\r -> state.resources ! r < recipeMaximums ! r) (take 3 allResources) ++ [True]
       , -- The state if no robots are built this turn.
       -- Any robots that are possible to built but haven't been should be
       -- marked as skipped so they're not attempted until after the next robot
@@ -170,7 +189,7 @@ bestGeodes timeLimit blueprint =
 
   go :: Cache -> State -> Cache
   go cache state
-    | state.time == timeLimit = max cache (state.resources M.! Geode)
+    | state.time == timeLimit = max cache (state.resources ! Geode)
     | maxPossScore state <= cache = cache
     | otherwise = foldl' go cache (getNext state)
 
