@@ -9,7 +9,7 @@ import AoC.Solution
 import Control.DeepSeq (NFData)
 import Data.Bifunctor (first)
 import Data.Foldable (foldl')
-import Data.Maybe (catMaybes, isJust)
+import Data.Maybe (mapMaybe)
 import Data.Void (Void)
 import GHC.Generics (Generic)
 import Linear (V4 (..))
@@ -87,7 +87,7 @@ data State = State
   , resources :: Resources
   , robots :: Robots
   , factory :: Maybe Resource
-  , skippedBuild :: [Bool]
+  , skipped :: V4 Bool
   }
   deriving (Show)
 
@@ -98,7 +98,7 @@ initialState =
     , resources = V4 0 0 0 0
     , robots = V4 1 0 0 0
     , factory = Nothing
-    , skippedBuild = fmap (const False) allResources
+    , skipped = V4 False False False False
     }
 
 updateResources :: Resources -> Recipe -> Maybe Resources
@@ -116,7 +116,7 @@ startFactory blueprint state robot =
         , factory = Just robot
         , -- Now the factory has been started, allow all robots to
           -- be considered for the next round.
-          skippedBuild = fmap (const False) allResources
+          skipped = V4 False False False False
         }
   )
     <$> updateResources state.resources recipe
@@ -163,29 +163,29 @@ bestGeodes timeLimit blueprint =
   -- Get all the possible next states.
   getNext :: State -> [State]
   getNext state =
-    catMaybes
-      [ build
+    reverse $ harvestOnly : mapMaybe (startFactory blueprint state') nextBuilds
+   where
+    state' :: State
+    state' = tick state
+
+    nextBuilds :: [Resource]
+    nextBuilds =
+      [ r
       | -- Try and build all the robots, this will be Nothing if there's not
       -- enough resources
-      let tickedState = tick state
-      , let allBuilds = fmap (startFactory blueprint tickedState) allResources
-      , let allCanBuild = fmap isJust allBuilds
+      r <- allResources
       , -- Don't build a robot if it's been skipped.
-      let allMayBuild = fmap (\(can, skipped) -> can && not skipped) (zip allCanBuild state.skippedBuild)
+      not (state.skipped ! r)
       , -- Don't build a robot for a resource of the number of such robots is
       -- already the maximum cost of that resource for any robot, otherwise
       -- that resource can't possibly be spent.
       -- Geode robots should always be built if possible!
-      let allShouldBuild = fmap (\r -> state.resources ! r < recipeMaximums ! r) (take 3 allResources) ++ [True]
-      , -- The state if no robots are built this turn.
-      -- Any robots that are possible to built but haven't been should be
-      -- marked as skipped so they're not attempted until after the next robot
-      -- is built.
-      let harvestOnly = tickedState{skippedBuild = uncurry (||) <$> zip allCanBuild state.skippedBuild}
-      , -- Try to build in the order Geode, Obsidian, Clay, Ore, None.
-      (build, shouldBuild, mayBuild) <- reverse $ (Just harvestOnly, True, True) : zip3 allBuilds allShouldBuild allMayBuild
-      , shouldBuild && mayBuild
+      r == Geode || state.resources ! r < recipeMaximums ! r
       ]
+
+    -- State where no robots are build.
+    harvestOnly :: State
+    harvestOnly = state'{skipped = fmap (== 1) . sum . fmap toVec $ nextBuilds}
 
   go :: Cache -> State -> Cache
   go cache state
