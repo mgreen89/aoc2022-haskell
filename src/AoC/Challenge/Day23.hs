@@ -32,18 +32,15 @@ checks L = [V2 (-1) (-1), V2 (-1) 0, V2 (-1) 1]
 
 propose :: Dir -> Set Point -> Point -> Maybe (Point, Point)
 propose start elves elf
-  | S.disjoint (S.fromList $ allNeighbs elf) elves = Nothing
+  | all (`S.notMember` elves) (allNeighbs elf) = Nothing
   | otherwise =
       listToMaybe . mapMaybe go . take 4 . iterate getNextDir $ start
  where
   go :: Dir -> Maybe (Point, Point)
   go d =
-    let
-      checkPoints = S.fromList $ fmap (+ elf) (checks d)
-     in
-      if S.disjoint checkPoints elves
-        then Just (elf, elf + dirPoint d)
-        else Nothing
+    if all (`S.notMember` elves) (fmap (+ elf) (checks d))
+      then Just (elf, elf + dirPoint d)
+      else Nothing
 
 doRound :: Dir -> Set Point -> Set Point
 doRound firstDir elves =
