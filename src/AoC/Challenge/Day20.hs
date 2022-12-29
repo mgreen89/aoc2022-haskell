@@ -10,12 +10,12 @@ import Control.Monad.Primitive (PrimMonad, PrimState)
 import Control.Monad.ST (runST)
 import Control.Monad.Trans.Except (runExceptT, throwE)
 import Data.Foldable (traverse_)
-import qualified Data.Vector as V
-import Data.Vector.Mutable (MVector)
-import qualified Data.Vector.Mutable as MV
+import qualified Data.Vector.Unboxed as V
+import Data.Vector.Unboxed.Mutable (MVector)
+import qualified Data.Vector.Unboxed.Mutable as MV
 import Text.Read (readEither)
 
-findIndex :: (PrimMonad m) => (a -> Bool) -> MVector (PrimState m) a -> m Int
+findIndex :: (PrimMonad m, MV.Unbox a) => (a -> Bool) -> MVector (PrimState m) a -> m Int
 findIndex check v = do
   x <- runExceptT $ foldM go () [0 .. MV.length v - 1]
   case x of
