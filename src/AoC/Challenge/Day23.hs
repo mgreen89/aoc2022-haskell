@@ -4,56 +4,95 @@ module AoC.Challenge.Day23 (
 )
 where
 
-import AoC.Common.Point (Dir (..), allNeighbs, boundingBox', dirPoint)
+import AoC.Common.Point (Dir (..), boundingBox')
 import AoC.Solution
+import Data.Bits (shiftL, shiftR, (.&.))
 import Data.Foldable (foldl')
-import Data.Map.Strict (Map)
-import qualified Data.Map.Strict as M
-import Data.Maybe (listToMaybe, mapMaybe)
-import Data.Set (Set)
-import qualified Data.Set as S
+import Data.Int (Int16)
+import Data.IntSet (IntSet)
+import qualified Data.IntSet as IS
+import Data.Maybe (fromMaybe, listToMaybe, mapMaybe)
 import Linear (V2 (..))
 
-type Point = V2 Int
+type Point = Int
+type PointSet = IntSet
 
-parseMap :: String -> Set Point
+-- Works with coordinates in the range of a 16-bit signed integer,
+-- i.e. in the range -32768 to 32767.
+
+toPoint :: Int -> Int -> Point
+toPoint x y = y `shiftL` 16 + x
+
+toVec :: Point -> V2 Int
+toVec p =
+  let
+    -- Cope with negative x.
+    x :: Int16
+    x = fromIntegral (p .&. 0xFFFF)
+   in
+    V2 (fromIntegral x) (p `shiftR` 16)
+
+dirPoint :: Dir -> Point
+dirPoint U = toPoint 0 (-1)
+dirPoint R = toPoint 1 0
+dirPoint D = toPoint 0 1
+dirPoint L = toPoint (-1) 0
+
+parseMap :: String -> PointSet
 parseMap =
-  S.fromList
+  IS.fromList
     . mapMaybe (\(p, c) -> if c == '#' then Just p else Nothing)
     . concat
-    . zipWith (\y -> zipWith (\x -> (V2 x y,)) [0 ..]) [0 ..]
+    . zipWith (\y -> zipWith (\x -> (toPoint x y,)) [0 ..]) [0 ..]
     . lines
 
 checks :: Dir -> [Point]
-checks U = [V2 (-1) (-1), V2 0 (-1), V2 1 (-1)]
-checks R = [V2 1 (-1), V2 1 0, V2 1 1]
-checks D = [V2 (-1) 1, V2 0 1, V2 1 1]
-checks L = [V2 (-1) (-1), V2 (-1) 0, V2 (-1) 1]
+checks U = [toPoint (-1) (-1), toPoint 0 (-1), toPoint 1 (-1)]
+checks R = [toPoint 1 (-1), toPoint 1 0, toPoint 1 1]
+checks D = [toPoint (-1) 1, toPoint 0 1, toPoint 1 1]
+checks L = [toPoint (-1) (-1), toPoint (-1) 0, toPoint (-1) 1]
 
-propose :: Dir -> Set Point -> Point -> Maybe (Point, Point)
+allDiffs :: [Point]
+allDiffs =
+  [ toPoint 1 0
+  , toPoint 1 1
+  , toPoint 0 1
+  , toPoint (-1) 1
+  , toPoint (-1) 0
+  , toPoint (-1) (-1)
+  , toPoint 0 (-1)
+  , toPoint 1 (-1)
+  ]
+
+propose :: Dir -> PointSet -> Point -> Point
 propose start elves elf
-  | all (`S.notMember` elves) (allNeighbs elf) = Nothing
+  | all ((`IS.notMember` elves) . (+ elf)) allDiffs = elf
   | otherwise =
-      listToMaybe . mapMaybe go . take 4 . iterate getNextDir $ start
+      fromMaybe elf
+        . listToMaybe
+        . mapMaybe go
+        . take 4
+        . iterate getNextDir
+        $ start
  where
-  go :: Dir -> Maybe (Point, Point)
+  go :: Dir -> Maybe Point
   go d =
-    if all (`S.notMember` elves) (fmap (+ elf) (checks d))
-      then Just (elf, elf + dirPoint d)
+    if all (`IS.notMember` elves) (fmap (+ elf) (checks d))
+      then Just $ elf + dirPoint d
       else Nothing
 
-doRound :: Dir -> Set Point -> Set Point
+doRound :: Dir -> PointSet -> PointSet
 doRound firstDir elves =
-  M.foldlWithKey update elves shouldMove
+  IS.foldl' go IS.empty elves
  where
-  proposed = foldl go M.empty elves
-  go a e = case propose firstDir elves e of
-    Just (from, to) -> M.insert from to a
-    Nothing -> a
-  proposedTargets :: Map Point Int
-  proposedTargets = M.fromListWith (+) (zip (M.elems proposed) (repeat 1))
-  shouldMove = M.filter (\v -> proposedTargets M.! v == 1) proposed
-  update es f t = S.delete f . S.insert t $ es
+  go a e =
+    let e' = propose firstDir elves e
+     in if e' `IS.member` a
+          then -- Two moving to the same point.
+          -- Max of two move from opposite directions, so restore the
+          -- old point and add the current point.
+            IS.delete e' . IS.insert (e' + e' - e) . IS.insert e $ a
+          else IS.insert e' a
 
 {-
 Helpful debug output for the test inputs.
@@ -62,7 +101,7 @@ showSet s =
   [ if x == 11 then '\n' else if p `S.member` s then '#' else '.'
   | y <- [-2 .. 9]
   , x <- [-3 .. 11]
-  , let p = V2 x y
+  , let p = toPoint x y
   ]
 -}
 
@@ -72,18 +111,19 @@ getNextDir D = L
 getNextDir L = R
 getNextDir R = U
 
-solveA :: Set Point -> Int
+solveA :: PointSet -> Int
 solveA start =
-  bbSize - S.size afterTen
+  bbSize - IS.size afterTen
  where
   rounds = fmap doRound . iterate getNextDir $ U
   afterTen = foldl' (\es rFn -> rFn es) start (take 10 rounds)
-  (bbLo, bbHi) = case boundingBox' afterTen of
+  afterTenVecs = IS.foldl' (\a p -> toVec p : a) [] afterTen
+  (bbLo, bbHi) = case boundingBox' afterTenVecs of
     Just x -> x
     Nothing -> error "Elves disappeared!?"
   bbSize = product (bbHi - bbLo + V2 1 1)
 
-day23a :: Solution (Set Point) Int
+day23a :: Solution PointSet Int
 day23a =
   Solution
     { sParse = Right . parseMap
@@ -91,7 +131,7 @@ day23a =
     , sSolve = Right . solveA
     }
 
-solveB :: Set Point -> Int
+solveB :: PointSet -> Int
 solveB start =
   go start 1 U
  where
@@ -101,7 +141,7 @@ solveB start =
           then i
           else go es' (i + 1) (getNextDir d)
 
-day23b :: Solution (Set Point) Int
+day23b :: Solution PointSet Int
 day23b =
   Solution
     { sParse = Right . parseMap
